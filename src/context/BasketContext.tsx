@@ -1,5 +1,8 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { BasketContext, type BasketContextValue } from "./BasketContextCore";
+import {
+  BasketContext,
+  type BasketContextValue,
+} from "./BasketContextState";
 import type { BasketItem } from "../types/basket";
 
 type AddBasketItem = Omit<BasketItem, "id">;
@@ -40,6 +43,29 @@ export function BasketProvider({ children }: BasketProviderProps) {
     });
   }
 
+  function updateQuantity(itemId: string, quantity: number) {
+    if (quantity < 1) {
+      removeFromBasket(itemId);
+      return;
+    }
+
+    setBasketItems((currentItems) =>
+      currentItems.map((item) =>
+        item.id === itemId ? { ...item, quantity } : item,
+      ),
+    );
+  }
+
+  function removeFromBasket(itemId: string) {
+    setBasketItems((currentItems) =>
+      currentItems.filter((item) => item.id !== itemId),
+    );
+  }
+
+  function clearBasket() {
+    setBasketItems([]);
+  }
+
   const basketItemCount = useMemo(
     () =>
       basketItems.reduce(
@@ -49,10 +75,24 @@ export function BasketProvider({ children }: BasketProviderProps) {
     [basketItems],
   );
 
+  const basketSubtotal = useMemo(
+    () =>
+      basketItems.reduce(
+        (total, basketItem) =>
+          total + basketItem.unitPrice * basketItem.quantity,
+        0,
+      ),
+    [basketItems],
+  );
+
   const value: BasketContextValue = {
     basketItems,
     basketItemCount,
+    basketSubtotal,
     addToBasket,
+    updateQuantity,
+    removeFromBasket,
+    clearBasket,
   };
 
   return (

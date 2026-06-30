@@ -23,9 +23,9 @@ function Navbar({ basketItemCount }: NavbarProps) {
           Account
         </button>
 
-        <button type="button" className="basket-button">
+        <Link to="/basket" className="basket-button">
           Basket ({basketItemCount})
-        </button>
+        </Link>
       </div>
     </header>
   );
