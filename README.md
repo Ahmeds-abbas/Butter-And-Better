@@ -1,75 +1,78 @@
-# React + TypeScript + Vite
+# Butter & Better
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Butter & Better is a full-stack e-commerce platform being developed for a UK-based bakery.
 
-Currently, two official plugins are available:
+The platform will allow customers to browse bakery products, customise selected items, manage a shopping basket, check out as a guest or registered user, make secure online payments, choose an available delivery or collection option, and earn loyalty rewards.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The bakery owner will have access to a secure admin dashboard for managing products, orders, customers, fulfilment, and loyalty points.
 
-## React Compiler
+## Project Status
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The project is currently in the early frontend development stage.
 
-## Expanding the ESLint configuration
+Completed so far:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- React and TypeScript project setup
+- Vite development environment
+- ESLint configuration
+- Initial homepage layout
+- Responsive navigation
+- Brand colour system
+- Reusable component structure
+- Git and GitHub setup
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Planned Features
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- Product catalogue
+- Product detail pages
+- Product customisation options
+- Shopping basket
+- Guest checkout
+- Customer registration and login
+- Secure online payments
+- UK address and postcode validation
+- Nationwide delivery for eligible products
+- Manchester same-day delivery
+- Free collection option
+- Customer order history
+- Loyalty points and rewards
+- Admin dashboard
+- Product management
+- Order management
+- Order status tracking
+- Payment and fulfilment status
+- Email order confirmations
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Technology Stack
 
-```
+### Frontend
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+- React
+- TypeScript
+- Vite
+- CSS
+- ESLint
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Planned Backend and Services
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- AWS
+- Amazon Cognito
+- Amazon DynamoDB
+- AWS Lambda
+- Amazon S3
+- Stripe
 
-```
+## Project Structure
+
+```text
+src/
+├── assets/
+├── components/
+│   └── layout/
+├── data/
+├── pages/
+├── types/
+├── App.tsx
+├── App.css
+├── index.css
+└── main.tsx
