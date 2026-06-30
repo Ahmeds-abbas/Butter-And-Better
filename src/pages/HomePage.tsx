@@ -1,3 +1,6 @@
+import ProductCard from "../components/products/ProductCard";
+import { products } from "../data/products";
+
 function HomePage() {
   return (
     <main>
@@ -25,6 +28,19 @@ function HomePage() {
 
         <div className="hero-image-placeholder">
           <span>Bakery image</span>
+        </div>
+      </section>
+
+      <section className="featured-products">
+        <div className="section-heading">
+          <p className="eyebrow">Customer favourites</p>
+          <h2>Featured bakes</h2>
+        </div>
+
+        <div className="product-grid">
+          {products.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
         </div>
       </section>
     </main>
