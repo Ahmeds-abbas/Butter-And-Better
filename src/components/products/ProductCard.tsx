@@ -5,6 +5,10 @@ type ProductCardProps = {
 };
 
 function ProductCard({ product }: ProductCardProps) {
+  const lowestPrice = Math.min(
+    ...product.variants.map((variant) => variant.price),
+  );
+
   return (
     <article className="product-card">
       <img
@@ -21,7 +25,7 @@ function ProductCard({ product }: ProductCardProps) {
         <p className="product-description">{product.description}</p>
 
         <div className="product-card-footer">
-          <strong>£{product.price.toFixed(2)}</strong>
+          <strong>From £{lowestPrice.toFixed(2)}</strong>
 
           <button type="button" disabled={!product.available}>
             {product.available ? "View product" : "Unavailable"}

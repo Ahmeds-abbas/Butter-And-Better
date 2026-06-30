@@ -1,3 +1,16 @@
+export type ProductCategory =
+  | "Cookies"
+  | "Brownies"
+  | "Brookies"
+  | "Blondies"
+  | "Banana Pudding";
+
+export type ProductVariant = {
+  id: string;
+  name: string;
+  price: number;
+};
+
 export type DeliveryOptions = {
   nationwide: boolean;
   manchester: boolean;
@@ -8,9 +21,9 @@ export type Product = {
   id: string;
   name: string;
   description: string;
-  price: number;
   imageUrl: string;
-  category: string;
+  category: ProductCategory;
   available: boolean;
+  variants: ProductVariant[];
   deliveryOptions: DeliveryOptions;
 };
