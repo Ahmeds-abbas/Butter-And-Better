@@ -1,0 +1,169 @@
+.app {
+  min-height: 100vh;
+}
+
+.navbar {
+  width: 100%;
+  max-width: var(--max-width);
+  min-height: 84px;
+  margin: 0 auto;
+  padding: 1rem var(--page-padding);
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+
+  border-bottom: 1px solid var(--color-border);
+}
+
+.brand {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.55rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.nav-links {
+  display: flex;
+  gap: 2rem;
+}
+
+.nav-links a {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.account-button,
+.basket-button,
+.primary-button,
+.secondary-button {
+  min-height: 46px;
+  padding: 0.75rem 1.25rem;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.account-button {
+  border: none;
+  color: var(--color-brown);
+  background: transparent;
+}
+
+.basket-button,
+.primary-button {
+  border: 1px solid var(--color-green);
+  color: var(--color-white);
+  background-color: var(--color-green);
+}
+
+.secondary-button {
+  border: 1px solid var(--color-brown);
+  color: var(--color-brown);
+  background-color: transparent;
+}
+
+.hero {
+  width: 100%;
+  max-width: var(--max-width);
+  min-height: calc(100vh - 84px);
+  margin: 0 auto;
+  padding: 4rem var(--page-padding);
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+  align-items: center;
+  gap: clamp(2rem, 7vw, 7rem);
+}
+
+.hero-content {
+  max-width: 680px;
+}
+
+.eyebrow {
+  margin: 0 0 1rem;
+  color: var(--color-green-dark);
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(3rem, 7vw, 6.5rem);
+  font-weight: 500;
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+}
+
+.hero-description {
+  max-width: 570px;
+  margin-top: 1.75rem;
+  font-size: 1.1rem;
+  line-height: 1.7;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.hero-image-placeholder {
+  min-height: 570px;
+  border-radius: 20rem 20rem 1.5rem 1.5rem;
+
+  display: grid;
+  place-items: center;
+
+  color: var(--color-cream);
+  background-color: var(--color-green);
+}
+
+@media (max-width: 900px) {
+  .nav-links {
+    display: none;
+  }
+
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-image-placeholder {
+    min-height: 440px;
+  }
+}
+
+@media (max-width: 560px) {
+  .account-button {
+    display: none;
+  }
+
+  .hero {
+    min-height: auto;
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+  }
+
+  .primary-button,
+  .secondary-button {
+    width: 100%;
+  }
+
+  .hero-image-placeholder {
+    min-height: 360px;
+  }
+}

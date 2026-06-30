@@ -1,0 +1,47 @@
+:root {
+  font-family: Arial, Helvetica, sans-serif;
+  color: #573615;
+  background-color: #f2f0ec;
+
+  --color-green: #738561;
+  --color-green-dark: #5f7050;
+  --color-brown: #573615;
+  --color-cream: #f2f0ec;
+  --color-white: #ffffff;
+  --color-border: rgba(87, 54, 21, 0.18);
+
+  --page-padding: clamp(1rem, 5vw, 5rem);
+  --max-width: 1440px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background-color: var(--color-cream);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
