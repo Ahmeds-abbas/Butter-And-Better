@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import type { Product } from "../../types/product";
 
 type ProductCardProps = {
@@ -27,9 +28,12 @@ function ProductCard({ product }: ProductCardProps) {
         <div className="product-card-footer">
           <strong>From £{lowestPrice.toFixed(2)}</strong>
 
-          <button type="button" disabled={!product.available}>
-            {product.available ? "View product" : "Unavailable"}
-          </button>
+          <Link
+            to={`/products/${product.id}`}
+            className="product-card-button"
+          >
+            View product
+          </Link>
         </div>
       </div>
     </article>

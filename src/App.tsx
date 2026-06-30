@@ -1,12 +1,26 @@
+import { Route, Routes } from "react-router-dom";
 import "./App.css";
 import Navbar from "./components/layout/Navbar";
+import AboutPage from "./pages/AboutPage";
+import ContactPage from "./pages/ContactPage";
 import HomePage from "./pages/HomePage";
+import NotFoundPage from "./pages/NotFoundPage";
+import ProductPage from "./pages/ProductPage";
+import ShopPage from "./pages/ShopPage";
 
 function App() {
   return (
     <div className="app">
       <Navbar basketItemCount={0} />
-      <HomePage />
+
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/shop" element={<ShopPage />} />
+        <Route path="/products/:productId" element={<ProductPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
     </div>
   );
 }

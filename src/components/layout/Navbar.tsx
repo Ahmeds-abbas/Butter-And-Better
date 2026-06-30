@@ -1,3 +1,5 @@
+import { Link, NavLink } from "react-router-dom";
+
 type NavbarProps = {
   basketItemCount: number;
 };
@@ -5,15 +7,15 @@ type NavbarProps = {
 function Navbar({ basketItemCount }: NavbarProps) {
   return (
     <header className="navbar">
-      <a href="/" className="brand">
+      <Link to="/" className="brand">
         Butter & Better
-      </a>
+      </Link>
 
       <nav className="nav-links" aria-label="Main navigation">
-        <a href="/">Home</a>
-        <a href="/shop">Shop</a>
-        <a href="/about">About</a>
-        <a href="/contact">Contact</a>
+        <NavLink to="/">Home</NavLink>
+        <NavLink to="/shop">Shop</NavLink>
+        <NavLink to="/about">About</NavLink>
+        <NavLink to="/contact">Contact</NavLink>
       </nav>
 
       <div className="nav-actions">
