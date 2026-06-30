@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   BasketContext,
   type BasketContextValue,
@@ -11,8 +11,29 @@ type BasketProviderProps = {
   children: ReactNode;
 };
 
+const BASKET_STORAGE_KEY = "butter-and-better-basket";
+
+function getStoredBasketItems(): BasketItem[] {
+  const storedBasketItems = localStorage.getItem(BASKET_STORAGE_KEY);
+
+  if (!storedBasketItems) {
+    return [];
+  }
+
+  try {
+    return JSON.parse(storedBasketItems) as BasketItem[];
+  } catch {
+    return [];
+  }
+}
+
 export function BasketProvider({ children }: BasketProviderProps) {
-  const [basketItems, setBasketItems] = useState<BasketItem[]>([]);
+  const [basketItems, setBasketItems] =
+    useState<BasketItem[]>(getStoredBasketItems);
+
+  useEffect(() => {
+    localStorage.setItem(BASKET_STORAGE_KEY, JSON.stringify(basketItems));
+  }, [basketItems]);
 
   function addToBasket(item: AddBasketItem) {
     const basketItemId = `${item.productId}-${item.variantId}`;
