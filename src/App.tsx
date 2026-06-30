@@ -7,11 +7,14 @@ import HomePage from "./pages/HomePage";
 import NotFoundPage from "./pages/NotFoundPage";
 import ProductPage from "./pages/ProductPage";
 import ShopPage from "./pages/ShopPage";
+import { useBasket } from "./hooks/useBasket";
 
 function App() {
+  const { basketItemCount } = useBasket();
+
   return (
     <div className="app">
-      <Navbar basketItemCount={0} />
+      <Navbar basketItemCount={basketItemCount} />
 
       <Routes>
         <Route path="/" element={<HomePage />} />
