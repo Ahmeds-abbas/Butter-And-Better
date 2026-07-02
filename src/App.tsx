@@ -9,6 +9,7 @@ import ProductPage from "./pages/ProductPage";
 import ShopPage from "./pages/ShopPage";
 import { useBasket } from "./hooks/useBasket";
 import BasketPage from "./pages/BasketPage";
+import CheckoutPage from "./pages/CheckoutPage";
 
 function App() {
   const { basketItemCount } = useBasket();
@@ -22,6 +23,7 @@ function App() {
         <Route path="/shop" element={<ShopPage />} />
         <Route path="/products/:productId" element={<ProductPage />} />
         <Route path="/basket" element={<BasketPage />} />
+        <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="*" element={<NotFoundPage />} />

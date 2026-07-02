@@ -118,9 +118,9 @@ function BasketPage() {
             <strong>£{basketSubtotal.toFixed(2)}</strong>
           </div>
 
-          <button type="button" className="checkout-button">
+          <Link to="/checkout" className="checkout-button">
             Continue to checkout
-          </button>
+          </Link>
 
           <Link to="/shop" className="continue-shopping-link">
             Continue shopping
