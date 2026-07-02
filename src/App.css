@@ -790,6 +790,32 @@
   gap: 1.25rem;
 }
 
+.checkout-main {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.checkout-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.checkout-step {
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-brown);
+  background-color: var(--color-white);
+  font-weight: 800;
+}
+
+.checkout-step-active {
+  border-color: var(--color-green);
+  color: var(--color-white);
+  background-color: var(--color-green);
+}
+
 .checkout-section,
 .checkout-summary {
   padding: 1.5rem;
@@ -799,6 +825,7 @@
 }
 
 .checkout-section h2,
+.checkout-address-fieldset legend,
 .checkout-summary h2 {
   margin: 0 0 1.25rem;
   font-family: Georgia, "Times New Roman", serif;
@@ -825,7 +852,8 @@
 }
 
 .checkout-section input,
-.checkout-section textarea {
+.checkout-section textarea,
+.checkout-section select {
   width: 100%;
   padding: 0.8rem 1rem;
   border: 1px solid var(--color-border);
@@ -836,9 +864,14 @@
 
 .checkout-section input:focus,
 .checkout-section textarea:focus,
+.checkout-section select:focus,
 .fulfilment-option:focus-within {
   outline: 2px solid rgba(115, 133, 97, 0.35);
   outline-offset: 2px;
+}
+
+.checkout-address-fieldset {
+  margin: 0;
 }
 
 .checkout-field-grid {
@@ -900,6 +933,82 @@
   font-weight: 700;
 }
 
+.checkout-review-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.checkout-review-heading h2 {
+  margin-bottom: 0;
+}
+
+.edit-checkout-button {
+  padding: 0;
+  border: none;
+  color: var(--color-brown);
+  background: transparent;
+  font-weight: 800;
+  text-decoration: underline;
+}
+
+.checkout-review-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.checkout-review-list div,
+.checkout-review-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.checkout-review-list span {
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.checkout-review-address,
+.checkout-review-copy {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.checkout-review-address p {
+  margin: 0.25rem 0;
+}
+
+.checkout-review-items {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.form-error {
+  margin: 0;
+  color: #9f2f22;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.form-field-error input,
+.form-field-error textarea,
+.form-field-error select {
+  border-color: #9f2f22;
+  background-color: rgba(159, 47, 34, 0.08);
+}
+
+.validation-summary {
+  padding: 1rem;
+  border: 1px solid #9f2f22;
+  border-radius: 0.9rem;
+  color: #9f2f22;
+  background-color: rgba(159, 47, 34, 0.08);
+  font-weight: 800;
+}
+
 .checkout-summary {
   position: sticky;
   top: 2rem;
@@ -931,5 +1040,11 @@
 @media (max-width: 650px) {
   .checkout-field-grid {
     grid-template-columns: 1fr;
+  }
+
+  .checkout-review-heading,
+  .checkout-review-list div,
+  .checkout-review-item {
+    display: grid;
   }
 }

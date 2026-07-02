@@ -1,7 +1,15 @@
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import {
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { Link } from "react-router-dom";
 import { useBasket } from "../hooks/useBasket";
-import type { CheckoutFormData, FulfilmentMethod } from "../types/checkout";
+import type {
+  CheckoutFormData,
+  CheckoutValidationErrors,
+  FulfilmentMethod,
+} from "../types/checkout";
 
 const initialCheckoutFormData: CheckoutFormData = {
   firstName: "",
@@ -38,29 +46,187 @@ const fulfilmentOptions: Array<{
   },
 ];
 
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ukPostcodePattern = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
+
+type CheckoutFieldName = keyof CheckoutFormData;
+
+function getFieldErrorId(fieldName: string) {
+  return `${fieldName}-error`;
+}
+
+function deliveryAddressRequired(
+  fulfilmentMethod: CheckoutFormData["fulfilmentMethod"],
+) {
+  return (
+    fulfilmentMethod === "nationwide" ||
+    fulfilmentMethod === "manchester"
+  );
+}
+
+function validateCheckoutForm(
+  formData: CheckoutFormData,
+): CheckoutValidationErrors {
+  const errors: CheckoutValidationErrors = {};
+  const trimmedFormData = {
+    firstName: formData.firstName.trim(),
+    lastName: formData.lastName.trim(),
+    email: formData.email.trim(),
+    phone: formData.phone.trim(),
+    addressLine1: formData.addressLine1.trim(),
+    city: formData.city.trim(),
+    postcode: formData.postcode.trim(),
+    fulfilmentMethod: formData.fulfilmentMethod,
+  };
+  const phoneDigits = trimmedFormData.phone.replace(/\D/g, "");
+  const requiresAddress = deliveryAddressRequired(
+    trimmedFormData.fulfilmentMethod,
+  );
+
+  if (!trimmedFormData.firstName) {
+    errors.firstName = "First name is required.";
+  }
+
+  if (!trimmedFormData.lastName) {
+    errors.lastName = "Last name is required.";
+  }
+
+  if (!trimmedFormData.email) {
+    errors.email = "Email is required.";
+  } else if (!emailPattern.test(trimmedFormData.email)) {
+    errors.email = "Enter a valid email address.";
+  }
+
+  if (!trimmedFormData.phone) {
+    errors.phone = "Phone number is required.";
+  } else if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+    errors.phone = "Phone number must contain 10 to 15 digits.";
+  }
+
+  if (!trimmedFormData.fulfilmentMethod) {
+    errors.fulfilmentMethod = "Choose a fulfilment method.";
+  }
+
+  if (requiresAddress) {
+    if (!trimmedFormData.addressLine1) {
+      errors.addressLine1 = "Address line 1 is required.";
+    }
+
+    if (!trimmedFormData.city) {
+      errors.city = "City is required.";
+    }
+
+    if (!trimmedFormData.postcode) {
+      errors.postcode = "Postcode is required.";
+    } else if (!ukPostcodePattern.test(trimmedFormData.postcode)) {
+      errors.postcode = "Enter a valid UK postcode.";
+    }
+  }
+
+  return errors;
+}
+
 function CheckoutPage() {
   const { basketItems, basketSubtotal } = useBasket();
   const [formData, setFormData] = useState<CheckoutFormData>(
     initialCheckoutFormData,
   );
+  const [checkoutStep, setCheckoutStep] = useState<"details" | "review">(
+    "details",
+  );
+  const [errors, setErrors] = useState<CheckoutValidationErrors>({});
   const [orderMessage, setOrderMessage] = useState("");
+  const showDeliveryAddress = deliveryAddressRequired(
+    formData.fulfilmentMethod,
+  );
+  const selectedFulfilmentOption = fulfilmentOptions.find(
+    (option) => option.value === formData.fulfilmentMethod,
+  );
+
+  function clearFieldError(fieldName: CheckoutFieldName) {
+    setErrors((currentErrors) => {
+      if (!(fieldName in currentErrors)) {
+        return currentErrors;
+      }
+
+      const nextErrors = { ...currentErrors };
+      delete nextErrors[fieldName as keyof CheckoutValidationErrors];
+      return nextErrors;
+    });
+  }
 
   function updateFormData(
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) {
     const { name, value } = event.target;
+    const fieldName = name as CheckoutFieldName;
+    const nextValue =
+      fieldName === "postcode" ? value.toUpperCase() : value;
 
     setFormData((currentFormData) => ({
       ...currentFormData,
-      [name]: value,
+      [fieldName]: nextValue,
     }));
+
+    setOrderMessage("");
+    setCheckoutStep("details");
+
+    if (fieldName === "fulfilmentMethod") {
+      setErrors((currentErrors) => {
+        const nextErrors = { ...currentErrors };
+        delete nextErrors.fulfilmentMethod;
+
+        if (value === "collection") {
+          delete nextErrors.addressLine1;
+          delete nextErrors.city;
+          delete nextErrors.postcode;
+        }
+
+        return nextErrors;
+      });
+      return;
+    }
+
+    clearFieldError(fieldName);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const validationErrors = validateCheckoutForm(formData);
+    const firstInvalidField = Object.keys(
+      validationErrors,
+    )[0] as keyof CheckoutValidationErrors | undefined;
+
+    setErrors(validationErrors);
+
+    if (firstInvalidField) {
+      setOrderMessage("");
+      const firstInvalidElement = event.currentTarget.querySelector(
+        `[name="${firstInvalidField}"]`,
+      );
+
+      if (firstInvalidElement instanceof HTMLElement) {
+        firstInvalidElement.focus();
+      }
+
+      return;
+    }
+
+    setOrderMessage("");
+    setCheckoutStep("review");
+  }
+
+  function handleReviewSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
     setOrderMessage(
       "Thanks. Your checkout details are ready for the next payment step.",
     );
+  }
+
+  function editCheckoutDetails() {
+    setOrderMessage("");
+    setCheckoutStep("details");
   }
 
   if (basketItems.length === 0) {
@@ -83,171 +249,433 @@ function CheckoutPage() {
     <main className="page">
       <section className="page-header">
         <p className="eyebrow">Checkout</p>
-        <h1>Complete your order</h1>
+        <h1>
+          {checkoutStep === "details"
+            ? "Complete your order"
+            : "Review your order"}
+        </h1>
         <p>
-          Add your details and choose how you would like to receive your bakes.
+          {checkoutStep === "details"
+            ? "Add your details and choose how you would like to receive your bakes."
+            : "Check everything looks right before continuing to payment."}
         </p>
       </section>
 
       <div className="checkout-layout">
-        <form className="checkout-form" onSubmit={handleSubmit}>
-          <section className="checkout-section">
-            <h2>Contact details</h2>
+        <div className="checkout-main">
+          <div className="checkout-steps" aria-label="Checkout progress">
+            <span
+              className={`checkout-step ${
+                checkoutStep === "details" ? "checkout-step-active" : ""
+              }`}
+            >
+              1. Details
+            </span>
+            <span
+              className={`checkout-step ${
+                checkoutStep === "review" ? "checkout-step-active" : ""
+              }`}
+            >
+              2. Review
+            </span>
+          </div>
 
-            <div className="checkout-field-grid">
-              <label>
-                <span>First name</span>
-                <input
-                  type="text"
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={updateFormData}
-                  required
-                />
-              </label>
+          {checkoutStep === "details" ? (
+            <form className="checkout-form" onSubmit={handleSubmit} noValidate>
+              <section className="checkout-section">
+                <h2>Contact details</h2>
 
-              <label>
-                <span>Last name</span>
-                <input
-                  type="text"
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={updateFormData}
-                  required
-                />
-              </label>
-            </div>
+                <div className="checkout-field-grid">
+                  <label
+                    className={
+                      errors.firstName ? "form-field-error" : undefined
+                    }
+                  >
+                    <span>First name</span>
+                    <input
+                      type="text"
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={updateFormData}
+                      aria-invalid={Boolean(errors.firstName)}
+                      aria-describedby={
+                        errors.firstName
+                          ? getFieldErrorId("firstName")
+                          : undefined
+                      }
+                      required
+                    />
+                    {errors.firstName && (
+                      <p
+                        id={getFieldErrorId("firstName")}
+                        className="form-error"
+                        role="alert"
+                      >
+                        {errors.firstName}
+                      </p>
+                    )}
+                  </label>
 
-            <label>
-              <span>Email</span>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={updateFormData}
-                required
-              />
-            </label>
+                  <label
+                    className={
+                      errors.lastName ? "form-field-error" : undefined
+                    }
+                  >
+                    <span>Last name</span>
+                    <input
+                      type="text"
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={updateFormData}
+                      aria-invalid={Boolean(errors.lastName)}
+                      aria-describedby={
+                        errors.lastName
+                          ? getFieldErrorId("lastName")
+                          : undefined
+                      }
+                      required
+                    />
+                    {errors.lastName && (
+                      <p
+                        id={getFieldErrorId("lastName")}
+                        className="form-error"
+                        role="alert"
+                      >
+                        {errors.lastName}
+                      </p>
+                    )}
+                  </label>
+                </div>
 
-            <label>
-              <span>Phone</span>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={updateFormData}
-                required
-              />
-            </label>
-          </section>
-
-          <section className="checkout-section">
-            <h2>Fulfilment</h2>
-
-            <fieldset className="fulfilment-options">
-              <legend>Choose an option</legend>
-
-              {fulfilmentOptions.map((option) => (
                 <label
-                  key={option.value}
-                  className={`fulfilment-option ${
-                    formData.fulfilmentMethod === option.value
-                      ? "fulfilment-option-selected"
-                      : ""
-                  }`}
+                  className={errors.email ? "form-field-error" : undefined}
                 >
+                  <span>Email</span>
                   <input
-                    type="radio"
-                    name="fulfilmentMethod"
-                    value={option.value}
-                    checked={formData.fulfilmentMethod === option.value}
+                    type="email"
+                    name="email"
+                    value={formData.email}
                     onChange={updateFormData}
+                    aria-invalid={Boolean(errors.email)}
+                    aria-describedby={
+                      errors.email ? getFieldErrorId("email") : undefined
+                    }
                     required
                   />
-
-                  <span>
-                    <strong>{option.label}</strong>
-                    {option.description}
-                  </span>
+                  {errors.email && (
+                    <p
+                      id={getFieldErrorId("email")}
+                      className="form-error"
+                      role="alert"
+                    >
+                      {errors.email}
+                    </p>
+                  )}
                 </label>
-              ))}
-            </fieldset>
-          </section>
 
-          <section className="checkout-section">
-            <h2>Address</h2>
+                <label
+                  className={errors.phone ? "form-field-error" : undefined}
+                >
+                  <span>Phone</span>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={updateFormData}
+                    aria-invalid={Boolean(errors.phone)}
+                    aria-describedby={
+                      errors.phone ? getFieldErrorId("phone") : undefined
+                    }
+                    required
+                  />
+                  {errors.phone && (
+                    <p
+                      id={getFieldErrorId("phone")}
+                      className="form-error"
+                      role="alert"
+                    >
+                      {errors.phone}
+                    </p>
+                  )}
+                </label>
+              </section>
 
-            <label>
-              <span>Address line 1</span>
-              <input
-                type="text"
-                name="addressLine1"
-                value={formData.addressLine1}
-                onChange={updateFormData}
-                required
-              />
-            </label>
+              <section className="checkout-section">
+                <h2>Fulfilment</h2>
 
-            <label>
-              <span>Address line 2</span>
-              <input
-                type="text"
-                name="addressLine2"
-                value={formData.addressLine2}
-                onChange={updateFormData}
-              />
-            </label>
+                <fieldset className="fulfilment-options">
+                  <legend>Choose an option</legend>
 
-            <div className="checkout-field-grid">
-              <label>
-                <span>City</span>
-                <input
-                  type="text"
-                  name="city"
-                  value={formData.city}
-                  onChange={updateFormData}
-                  required
-                />
-              </label>
+                  {fulfilmentOptions.map((option) => (
+                    <label
+                      key={option.value}
+                      className={`fulfilment-option ${
+                        formData.fulfilmentMethod === option.value
+                          ? "fulfilment-option-selected"
+                          : ""
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="fulfilmentMethod"
+                        value={option.value}
+                        checked={formData.fulfilmentMethod === option.value}
+                        onChange={updateFormData}
+                        aria-invalid={Boolean(errors.fulfilmentMethod)}
+                        aria-describedby={
+                          errors.fulfilmentMethod
+                            ? getFieldErrorId("fulfilmentMethod")
+                            : undefined
+                        }
+                        required
+                      />
 
-              <label>
-                <span>Postcode</span>
-                <input
-                  type="text"
-                  name="postcode"
-                  value={formData.postcode}
-                  onChange={updateFormData}
-                  required
-                />
-              </label>
-            </div>
-          </section>
+                      <span>
+                        <strong>{option.label}</strong>
+                        {option.description}
+                      </span>
+                    </label>
+                  ))}
 
-          <section className="checkout-section">
-            <h2>Order notes</h2>
+                  {errors.fulfilmentMethod && (
+                    <p
+                      id={getFieldErrorId("fulfilmentMethod")}
+                      className="form-error"
+                      role="alert"
+                    >
+                      {errors.fulfilmentMethod}
+                    </p>
+                  )}
+                </fieldset>
+              </section>
 
-            <label>
-              <span>Notes</span>
-              <textarea
-                name="orderNotes"
-                value={formData.orderNotes}
-                onChange={updateFormData}
-                rows={4}
-                placeholder="Add allergies, preferred dates or delivery notes."
-              />
-            </label>
-          </section>
+              {showDeliveryAddress && (
+                <fieldset className="checkout-section checkout-address-fieldset">
+                  <legend>Delivery address</legend>
 
-          <button type="submit" className="checkout-submit-button">
-            Continue to payment
-          </button>
+                  <label
+                    className={
+                      errors.addressLine1 ? "form-field-error" : undefined
+                    }
+                  >
+                    <span>Address line 1</span>
+                    <input
+                      type="text"
+                      name="addressLine1"
+                      value={formData.addressLine1}
+                      onChange={updateFormData}
+                      aria-invalid={Boolean(errors.addressLine1)}
+                      aria-describedby={
+                        errors.addressLine1
+                          ? getFieldErrorId("addressLine1")
+                          : undefined
+                      }
+                      required
+                    />
+                    {errors.addressLine1 && (
+                      <p
+                        id={getFieldErrorId("addressLine1")}
+                        className="form-error"
+                        role="alert"
+                      >
+                        {errors.addressLine1}
+                      </p>
+                    )}
+                  </label>
 
-          {orderMessage && (
-            <p className="checkout-message" aria-live="polite">
-              {orderMessage}
-            </p>
+                  <label>
+                    <span>Address line 2</span>
+                    <input
+                      type="text"
+                      name="addressLine2"
+                      value={formData.addressLine2}
+                      onChange={updateFormData}
+                    />
+                  </label>
+
+                  <div className="checkout-field-grid">
+                    <label
+                      className={
+                        errors.city ? "form-field-error" : undefined
+                      }
+                    >
+                      <span>City</span>
+                      <input
+                        type="text"
+                        name="city"
+                        value={formData.city}
+                        onChange={updateFormData}
+                        aria-invalid={Boolean(errors.city)}
+                        aria-describedby={
+                          errors.city ? getFieldErrorId("city") : undefined
+                        }
+                        required
+                      />
+                      {errors.city && (
+                        <p
+                          id={getFieldErrorId("city")}
+                          className="form-error"
+                          role="alert"
+                        >
+                          {errors.city}
+                        </p>
+                      )}
+                    </label>
+
+                    <label
+                      className={
+                        errors.postcode ? "form-field-error" : undefined
+                      }
+                    >
+                      <span>Postcode</span>
+                      <input
+                        type="text"
+                        name="postcode"
+                        value={formData.postcode}
+                        onChange={updateFormData}
+                        aria-invalid={Boolean(errors.postcode)}
+                        aria-describedby={
+                          errors.postcode
+                            ? getFieldErrorId("postcode")
+                            : undefined
+                        }
+                        required
+                      />
+                      {errors.postcode && (
+                        <p
+                          id={getFieldErrorId("postcode")}
+                          className="form-error"
+                          role="alert"
+                        >
+                          {errors.postcode}
+                        </p>
+                      )}
+                    </label>
+                  </div>
+                </fieldset>
+              )}
+
+              <section className="checkout-section">
+                <h2>Order notes</h2>
+
+                <label>
+                  <span>Notes</span>
+                  <textarea
+                    name="orderNotes"
+                    value={formData.orderNotes}
+                    onChange={updateFormData}
+                    rows={4}
+                    placeholder="Add allergies, preferred dates or delivery notes."
+                  />
+                </label>
+              </section>
+
+              <button type="submit" className="checkout-submit-button">
+                Review order
+              </button>
+            </form>
+          ) : (
+            <form
+              className="checkout-form"
+              onSubmit={handleReviewSubmit}
+              noValidate
+            >
+              <section className="checkout-section checkout-review-section">
+                <div className="checkout-review-heading">
+                  <h2>Customer details</h2>
+                  <button
+                    type="button"
+                    className="edit-checkout-button"
+                    onClick={editCheckoutDetails}
+                  >
+                    Edit details
+                  </button>
+                </div>
+
+                <div className="checkout-review-list">
+                  <div>
+                    <span>Name</span>
+                    <strong>
+                      {formData.firstName.trim()} {formData.lastName.trim()}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Email</span>
+                    <strong>{formData.email.trim()}</strong>
+                  </div>
+                  <div>
+                    <span>Phone</span>
+                    <strong>{formData.phone.trim()}</strong>
+                  </div>
+                  <div>
+                    <span>Fulfilment</span>
+                    <strong>{selectedFulfilmentOption?.label}</strong>
+                  </div>
+                </div>
+              </section>
+
+              {showDeliveryAddress && (
+                <section className="checkout-section checkout-review-section">
+                  <h2>Delivery address</h2>
+
+                  <div className="checkout-review-address">
+                    <p>{formData.addressLine1.trim()}</p>
+                    {formData.addressLine2.trim() && (
+                      <p>{formData.addressLine2.trim()}</p>
+                    )}
+                    <p>{formData.city.trim()}</p>
+                    <p>{formData.postcode.trim()}</p>
+                  </div>
+                </section>
+              )}
+
+              {formData.fulfilmentMethod === "collection" && (
+                <section className="checkout-section checkout-review-section">
+                  <h2>Collection</h2>
+                  <p className="checkout-review-copy">
+                    No delivery address is needed for collection.
+                  </p>
+                </section>
+              )}
+
+              {formData.orderNotes.trim() && (
+                <section className="checkout-section checkout-review-section">
+                  <h2>Order notes</h2>
+                  <p className="checkout-review-copy">
+                    {formData.orderNotes.trim()}
+                  </p>
+                </section>
+              )}
+
+              <section className="checkout-section checkout-review-section">
+                <h2>Items</h2>
+
+                <div className="checkout-review-items">
+                  {basketItems.map((item) => (
+                    <div key={item.id} className="checkout-review-item">
+                      <span>
+                        {item.quantity} x {item.variantName}
+                      </span>
+                      <strong>
+                        GBP {(item.unitPrice * item.quantity).toFixed(2)}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <button type="submit" className="checkout-submit-button">
+                Continue to payment
+              </button>
+
+              {orderMessage && (
+                <p className="checkout-message" aria-live="polite">
+                  {orderMessage}
+                </p>
+              )}
+            </form>
           )}
-        </form>
+        </div>
 
         <aside className="checkout-summary">
           <h2>Order summary</h2>

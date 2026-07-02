@@ -15,3 +15,17 @@ export type CheckoutFormData = {
   fulfilmentMethod: FulfilmentMethod | "";
   orderNotes: string;
 };
+
+export type CheckoutValidationErrors = Partial<
+  Record<
+    | "firstName"
+    | "lastName"
+    | "email"
+    | "phone"
+    | "addressLine1"
+    | "city"
+    | "postcode"
+    | "fulfilmentMethod",
+    string
+  >
+>;
