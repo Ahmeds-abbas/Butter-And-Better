@@ -1,4 +1,4 @@
-import { type ClientSchema, a, defineData } from '@aws-amplify/backend';
+import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 
 const schema = a.schema({
   Product: a
@@ -13,18 +13,18 @@ const schema = a.schema({
       manchesterDelivery: a.boolean().required(),
       collectionAvailable: a.boolean().required(),
 
-      variants: a.hasMany('ProductVariant', 'productId'),
+      variants: a.hasMany("ProductVariant", "productId"),
     })
     .authorization((allow) => [
-      allow.guest().to(['read']),
-      allow.authenticated().to(['read']),
-      allow.group('Admin'),
+      allow.guest().to(["read"]),
+      allow.authenticated().to(["read"]),
+      allow.group("Admin"),
     ]),
 
   ProductVariant: a
     .model({
       productId: a.id().required(),
-      product: a.belongsTo('Product', 'productId'),
+      product: a.belongsTo("Product", "productId"),
 
       name: a.string().required(),
       priceInPence: a.integer().required(),
@@ -33,9 +33,9 @@ const schema = a.schema({
       sortOrder: a.integer(),
     })
     .authorization((allow) => [
-      allow.guest().to(['read']),
-      allow.authenticated().to(['read']),
-      allow.group('Admin'),
+      allow.guest().to(["read"]),
+      allow.authenticated().to(["read"]),
+      allow.group("Admin"),
     ]),
 
   Order: a
@@ -59,22 +59,25 @@ const schema = a.schema({
 
       subtotalInPence: a.integer().required(),
       deliveryFeeInPence: a.integer().required(),
+      loyaltySpendInPence: a.integer().required(),
+      stampsEarned: a.integer().required(),
+      rewardDiscountInPence: a.integer().required(),
       totalInPence: a.integer().required(),
 
       stripePaymentIntentId: a.string(),
 
-      items: a.hasMany('OrderItem', 'orderId'),
+      items: a.hasMany("OrderItem", "orderId"),
     })
     .authorization((allow) => [
-      allow.guest().to(['create']),
-      allow.owner().to(['create', 'read']),
-      allow.group('Admin'),
+      allow.guest().to(["create"]),
+      allow.owner().to(["create", "read"]),
+      allow.group("Admin"),
     ]),
 
   OrderItem: a
     .model({
       orderId: a.id().required(),
-      order: a.belongsTo('Order', 'orderId'),
+      order: a.belongsTo("Order", "orderId"),
 
       productId: a.id(),
       variantId: a.id(),
@@ -86,9 +89,9 @@ const schema = a.schema({
       lineTotalInPence: a.integer().required(),
     })
     .authorization((allow) => [
-      allow.guest().to(['create']),
-      allow.owner().to(['create', 'read']),
-      allow.group('Admin'),
+      allow.guest().to(["create"]),
+      allow.owner().to(["create", "read"]),
+      allow.group("Admin"),
     ]),
 
   CustomerProfile: a
@@ -96,11 +99,14 @@ const schema = a.schema({
       firstName: a.string(),
       lastName: a.string(),
       phone: a.phone(),
-      loyaltyPoints: a.integer().required(),
+
+      loyaltyStamps: a.integer().required(),
+      loyaltyRemainderInPence: a.integer().required(),
+      availableRewards: a.integer().required(),
     })
     .authorization((allow) => [
       allow.owner(),
-      allow.group('Admin'),
+      allow.group("Admin"),
     ]),
 });
 
@@ -109,6 +115,6 @@ export type Schema = ClientSchema<typeof schema>;
 export const data = defineData({
   schema,
   authorizationModes: {
-    defaultAuthorizationMode: 'identityPool',
+    defaultAuthorizationMode: "identityPool",
   },
 });
