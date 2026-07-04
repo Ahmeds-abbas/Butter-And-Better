@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
+import { fetchAuthSession } from "aws-amplify/auth";
+import { Hub } from "aws-amplify/utils";
+import "../../lib/amplifyConfig";
 
 type NavbarProps = {
   basketItemCount: number;
@@ -7,6 +10,29 @@ type NavbarProps = {
 
 function Navbar({ basketItemCount }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    async function checkAdminStatus() {
+      try {
+        const session = await fetchAuthSession();
+        const groups =
+          session.tokens?.accessToken.payload["cognito:groups"];
+
+        setIsAdmin(Array.isArray(groups) && groups.includes("Admin"));
+      } catch {
+        setIsAdmin(false);
+      }
+    }
+
+    void checkAdminStatus();
+
+    const stopListening = Hub.listen("auth", () => {
+      void checkAdminStatus();
+    });
+
+    return stopListening;
+  }, []);
 
   function closeMenu() {
     setMenuOpen(false);
@@ -24,12 +50,14 @@ function Navbar({ basketItemCount }: NavbarProps) {
           <NavLink to="/shop">Shop</NavLink>
           <NavLink to="/about">About</NavLink>
           <NavLink to="/contact">Contact</NavLink>
+
+          {isAdmin && <NavLink to="/admin">Admin</NavLink>}
         </nav>
 
         <div className="nav-actions">
-          <button type="button" className="account-button">
+          <Link to="/account" className="account-button">
             Account
-          </button>
+          </Link>
 
           <Link to="/basket" className="basket-button">
             Basket ({basketItemCount})
@@ -43,7 +71,7 @@ function Navbar({ basketItemCount }: NavbarProps) {
             aria-label={
               menuOpen ? "Close navigation menu" : "Open navigation menu"
             }
-            onClick={() => setMenuOpen((currentMenuOpen) => !currentMenuOpen)}
+            onClick={() => setMenuOpen((current) => !current)}
           >
             {menuOpen ? "Close" : "Menu"}
           </button>
@@ -62,15 +90,29 @@ function Navbar({ basketItemCount }: NavbarProps) {
         <NavLink to="/" onClick={closeMenu}>
           Home
         </NavLink>
+
         <NavLink to="/shop" onClick={closeMenu}>
           Shop
         </NavLink>
+
         <NavLink to="/about" onClick={closeMenu}>
           About
         </NavLink>
+
         <NavLink to="/contact" onClick={closeMenu}>
           Contact
         </NavLink>
+
+        <NavLink to="/account" onClick={closeMenu}>
+          Account
+        </NavLink>
+
+        {isAdmin && (
+          <NavLink to="/admin" onClick={closeMenu}>
+            Admin
+          </NavLink>
+        )}
+
         <Link to="/basket" onClick={closeMenu}>
           Basket ({basketItemCount})
         </Link>
