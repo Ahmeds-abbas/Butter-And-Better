@@ -1,33 +1,116 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { products } from "../data/products";
+
 import { useBasket } from "../hooks/useBasket";
+import { dataClient } from "../lib/amplifyClient";
+import type { Product } from "../types/product";
 
 function ProductPage() {
   const { productId } = useParams<{ productId: string }>();
   const { addToBasket } = useBasket();
 
-  const product = products.find((item) => item.id === productId);
-
+  const [product, setProduct] = useState<Product | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [selectedVariantId, setSelectedVariantId] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [confirmationMessage, setConfirmationMessage] = useState("");
 
-  if (!product) {
-    return (
-      <main className="page">
-        <section className="page-header">
-          <h1>Product not found</h1>
+  useEffect(() => {
+    let isCancelled = false;
 
-          <Link to="/shop" className="primary-button">
-            Return to shop
-          </Link>
-        </section>
-      </main>
-    );
-  }
+    async function loadProduct() {
+      if (!productId) {
+        setIsLoading(false);
+        return;
+      }
 
-  const selectedVariant = product.variants.find(
+      setIsLoading(true);
+      setLoadError("");
+
+      try {
+        const productResponse = await dataClient.models.Product.get({
+          id: productId,
+        });
+
+        if (productResponse.errors?.length) {
+          throw new Error(
+            productResponse.errors.map((error) => error.message).join(", "),
+          );
+        }
+
+        const backendProduct = productResponse.data;
+
+        if (!backendProduct || !backendProduct.isActive) {
+          if (!isCancelled) {
+            setProduct(null);
+          }
+
+          return;
+        }
+
+        const variantResponse = await backendProduct.variants();
+
+        if (variantResponse.errors?.length) {
+          throw new Error(
+            variantResponse.errors.map((error) => error.message).join(", "),
+          );
+        }
+
+        const loadedProduct: Product = {
+          id: backendProduct.id,
+          name: backendProduct.name,
+          description: backendProduct.description ?? "",
+          imageUrl: backendProduct.imageKey ?? "/src/assets/hero.png",
+          category: backendProduct.category as Product["category"],
+          available: backendProduct.isActive,
+          variants: variantResponse.data
+            .filter((variant) => variant.isActive)
+            .sort(
+              (first, second) =>
+                (first.sortOrder ?? 0) - (second.sortOrder ?? 0),
+            )
+            .map((variant) => ({
+              id: variant.id,
+              name: variant.name,
+              price: variant.priceInPence / 100,
+            })),
+          deliveryOptions: {
+            nationwide: backendProduct.nationwideDelivery,
+            manchester: backendProduct.manchesterDelivery,
+            collection: backendProduct.collectionAvailable,
+          },
+        };
+
+        if (!isCancelled) {
+          setProduct(loadedProduct);
+          setSelectedVariantId("");
+          setQuantity(1);
+          setConfirmationMessage("");
+        }
+      } catch (error) {
+        console.error("Failed to load product:", error);
+
+        if (!isCancelled) {
+          setLoadError(
+            "We could not load this product. Please refresh and try again.",
+          );
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadProduct();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [productId]);
+
+  const selectedVariant = product?.variants.find(
     (variant) => variant.id === selectedVariantId,
   );
 
@@ -62,6 +145,45 @@ function ProductPage() {
 
   function increaseQuantity() {
     setQuantity((currentQuantity) => currentQuantity + 1);
+  }
+
+  if (isLoading) {
+    return (
+      <main className="page">
+        <section className="page-header" aria-live="polite">
+          <p>Loading product...</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <main className="page">
+        <section className="page-header" role="alert">
+          <h1>Product unavailable</h1>
+          <p>{loadError}</p>
+
+          <Link to="/shop" className="primary-button">
+            Return to shop
+          </Link>
+        </section>
+      </main>
+    );
+  }
+
+  if (!product) {
+    return (
+      <main className="page">
+        <section className="page-header">
+          <h1>Product not found</h1>
+
+          <Link to="/shop" className="primary-button">
+            Return to shop
+          </Link>
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -138,9 +260,11 @@ function ProductPage() {
             type="button"
             className="add-to-basket-button"
             onClick={handleAddToBasket}
-            disabled={!product.available}
+            disabled={!product.available || product.variants.length === 0}
           >
-            {product.available ? "Add to basket" : "Currently unavailable"}
+            {product.available && product.variants.length > 0
+              ? "Add to basket"
+              : "Currently unavailable"}
           </button>
 
           {selectedVariant && (
