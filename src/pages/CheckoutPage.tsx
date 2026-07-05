@@ -1,10 +1,20 @@
 import {
+  useMemo,
   useState,
   type ChangeEvent,
   type FormEvent,
 } from "react";
 import { Link } from "react-router-dom";
+import OrderConfirmation from "../components/checkout/OrderConfirmation";
 import { useBasket } from "../hooks/useBasket";
+import {
+  calculateCheckoutTotals,
+  formatCurrencyFromPence,
+} from "../lib/checkoutCalculations";
+import {
+  createCheckoutOrder,
+  type CreatedOrderSummary,
+} from "../lib/orderCreation";
 import type {
   CheckoutFormData,
   CheckoutValidationErrors,
@@ -127,7 +137,7 @@ function validateCheckoutForm(
 }
 
 function CheckoutPage() {
-  const { basketItems, basketSubtotal } = useBasket();
+  const { basketItems, clearBasket } = useBasket();
   const [formData, setFormData] = useState<CheckoutFormData>(
     initialCheckoutFormData,
   );
@@ -136,12 +146,37 @@ function CheckoutPage() {
   );
   const [errors, setErrors] = useState<CheckoutValidationErrors>({});
   const [orderMessage, setOrderMessage] = useState("");
+  const [orderCreationError, setOrderCreationError] = useState("");
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState<CreatedOrderSummary | null>(
+    null,
+  );
   const showDeliveryAddress = deliveryAddressRequired(
     formData.fulfilmentMethod,
   );
   const selectedFulfilmentOption = fulfilmentOptions.find(
     (option) => option.value === formData.fulfilmentMethod,
   );
+  const basketSubtotalInPence = useMemo(
+    () =>
+      basketItems.reduce(
+        (total, item) =>
+          total + Math.round(item.unitPrice * 100) * item.quantity,
+        0,
+      ),
+    [basketItems],
+  );
+  const checkoutTotals = useMemo(() => {
+    if (!formData.fulfilmentMethod) {
+      return null;
+    }
+
+    try {
+      return calculateCheckoutTotals(basketItems, formData.fulfilmentMethod);
+    } catch {
+      return null;
+    }
+  }, [basketItems, formData.fulfilmentMethod]);
 
   function clearFieldError(fieldName: CheckoutFieldName) {
     setErrors((currentErrors) => {
@@ -169,6 +204,7 @@ function CheckoutPage() {
     }));
 
     setOrderMessage("");
+    setOrderCreationError("");
     setCheckoutStep("details");
 
     if (fieldName === "fulfilmentMethod") {
@@ -213,20 +249,84 @@ function CheckoutPage() {
     }
 
     setOrderMessage("");
+    setOrderCreationError("");
     setCheckoutStep("review");
   }
 
-  function handleReviewSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleReviewSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    setOrderMessage(
-      "Thanks. Your checkout details are ready for the next payment step.",
-    );
+    if (isSubmittingOrder) {
+      return;
+    }
+
+    const validationErrors = validateCheckoutForm(formData);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      setCheckoutStep("details");
+      return;
+    }
+
+    if (basketItems.length === 0) {
+      setOrderCreationError("Your basket is empty.");
+      return;
+    }
+
+    if (!formData.fulfilmentMethod) {
+      setOrderCreationError("Choose a fulfilment method.");
+      return;
+    }
+
+    try {
+      calculateCheckoutTotals(basketItems, formData.fulfilmentMethod);
+    } catch (error) {
+      setOrderCreationError(
+        error instanceof Error
+          ? error.message
+          : "Your basket contains an invalid item.",
+      );
+      return;
+    }
+
+    setIsSubmittingOrder(true);
+    setOrderCreationError("");
+    setOrderMessage("");
+
+    try {
+      const nextOrder = await createCheckoutOrder(formData, basketItems);
+
+      clearBasket();
+      setCreatedOrder(nextOrder);
+    } catch (error) {
+      console.error("Failed to create checkout order:", error);
+      setOrderCreationError(
+        error instanceof Error
+          ? error.message
+          : "We could not place your order. Please try again.",
+      );
+    } finally {
+      setIsSubmittingOrder(false);
+    }
   }
 
   function editCheckoutDetails() {
     setOrderMessage("");
+    setOrderCreationError("");
     setCheckoutStep("details");
+  }
+
+  if (createdOrder) {
+    return (
+      <OrderConfirmation
+        order={createdOrder}
+        fulfilmentLabel={
+          fulfilmentOptions.find(
+            (option) => option.value === createdOrder.fulfilmentMethod,
+          )?.label ?? createdOrder.fulfilmentMethod
+        }
+      />
+    );
   }
 
   if (basketItems.length === 0) {
@@ -657,20 +757,66 @@ function CheckoutPage() {
                         {item.quantity} x {item.variantName}
                       </span>
                       <strong>
-                        GBP {(item.unitPrice * item.quantity).toFixed(2)}
+                        {formatCurrencyFromPence(
+                          Math.round(item.unitPrice * 100) * item.quantity,
+                        )}
                       </strong>
                     </div>
                   ))}
                 </div>
               </section>
 
-              <button type="submit" className="checkout-submit-button">
-                Continue to payment
+              {checkoutTotals && (
+                <section className="checkout-section checkout-review-section">
+                  <h2>Total</h2>
+                  <div className="checkout-review-list">
+                    <div>
+                      <span>Subtotal</span>
+                      <strong>
+                        {formatCurrencyFromPence(
+                          checkoutTotals.subtotalInPence,
+                        )}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>Delivery</span>
+                      <strong>
+                        {formatCurrencyFromPence(
+                          checkoutTotals.deliveryFeeInPence,
+                        )}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>Payment status</span>
+                      <strong>Pending</strong>
+                    </div>
+                    <div>
+                      <span>Total</span>
+                      <strong>
+                        {formatCurrencyFromPence(checkoutTotals.totalInPence)}
+                      </strong>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              <button
+                type="submit"
+                className="checkout-submit-button"
+                disabled={isSubmittingOrder}
+              >
+                {isSubmittingOrder ? "Placing order..." : "Place order request"}
               </button>
 
               {orderMessage && (
                 <p className="checkout-message" aria-live="polite">
                   {orderMessage}
+                </p>
+              )}
+
+              {orderCreationError && (
+                <p className="checkout-message checkout-message-error" role="alert">
+                  {orderCreationError}
                 </p>
               )}
             </form>
@@ -687,7 +833,9 @@ function CheckoutPage() {
                   {item.quantity} x {item.variantName}
                 </span>
                 <strong>
-                  GBP {(item.unitPrice * item.quantity).toFixed(2)}
+                  {formatCurrencyFromPence(
+                    Math.round(item.unitPrice * 100) * item.quantity,
+                  )}
                 </strong>
               </div>
             ))}
@@ -695,17 +843,29 @@ function CheckoutPage() {
 
           <div className="summary-row">
             <span>Subtotal</span>
-            <strong>GBP {basketSubtotal.toFixed(2)}</strong>
+            <strong>
+              {formatCurrencyFromPence(
+                checkoutTotals?.subtotalInPence ?? basketSubtotalInPence,
+              )}
+            </strong>
           </div>
 
           <div className="summary-row">
             <span>Delivery</span>
-            <span>Confirmed after fulfilment review</span>
+            <span>
+              {checkoutTotals
+                ? formatCurrencyFromPence(checkoutTotals.deliveryFeeInPence)
+                : "Choose fulfilment"}
+            </span>
           </div>
 
           <div className="summary-total">
             <span>Estimated total</span>
-            <strong>GBP {basketSubtotal.toFixed(2)}</strong>
+            <strong>
+              {formatCurrencyFromPence(
+                checkoutTotals?.totalInPence ?? basketSubtotalInPence,
+              )}
+            </strong>
           </div>
 
           <Link to="/basket" className="continue-shopping-link">
