@@ -1,7 +1,49 @@
 import { useEffect, useMemo, useState } from "react";
+import { fetchAuthSession } from "aws-amplify/auth";
 import ProductCard from "../components/products/ProductCard";
 import { dataClient } from "../lib/amplifyClient";
 import type { Product } from "../types/product";
+
+type ProductReadAuthMode = "userPool" | "iam";
+
+async function getProductReadAuthModes(): Promise<ProductReadAuthMode[]> {
+  try {
+    const session = await fetchAuthSession();
+
+    if (session.tokens?.accessToken) {
+      return ["userPool", "iam"];
+    }
+  } catch {
+    // Guest shoppers should read with IAM through the identity pool.
+  }
+
+  return ["iam", "userPool"];
+}
+
+async function listProductsWithFallback() {
+  const authModes = await getProductReadAuthModes();
+  let lastError: unknown;
+
+  for (const authMode of authModes) {
+    try {
+      const response = await dataClient.models.Product.list({ authMode });
+
+      if (response.errors?.length && response.data.length === 0) {
+        throw new Error(
+          response.errors.map((error) => error.message).join(", "),
+        );
+      }
+
+      return { authMode, response };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Could not load products.");
+}
 
 function ShopPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -18,9 +60,10 @@ function ShopPage() {
       setLoadError("");
 
       try {
-        const productResponse = await dataClient.models.Product.list();
+        const { authMode, response: productResponse } =
+          await listProductsWithFallback();
 
-        if (productResponse.errors?.length) {
+        if (productResponse.errors?.length && productResponse.data.length === 0) {
           throw new Error(
             productResponse.errors
               .map((error) => error.message)
@@ -32,42 +75,47 @@ function ShopPage() {
           productResponse.data
             .filter((product) => product.isActive)
             .map(async (product) => {
-            const variantResponse = await product.variants();
+              const variantResponse = await product.variants({
+                authMode,
+              });
 
-            if (variantResponse.errors?.length) {
-              throw new Error(
-                variantResponse.errors
-                  .map((error) => error.message)
-                  .join(", "),
-              );
-            }
+              if (
+                variantResponse.errors?.length &&
+                variantResponse.data.length === 0
+              ) {
+                throw new Error(
+                  variantResponse.errors
+                    .map((error) => error.message)
+                    .join(", "),
+                );
+              }
 
-            const variants = variantResponse.data
-              .filter((variant) => variant.isActive)
-              .sort(
-                (first, second) =>
-                  (first.sortOrder ?? 0) - (second.sortOrder ?? 0),
-              )
-              .map((variant) => ({
-                id: variant.id,
-                name: variant.name,
-                price: variant.priceInPence / 100,
-              }));
+              const variants = variantResponse.data
+                .filter((variant) => variant.isActive)
+                .sort(
+                  (first, second) =>
+                    (first.sortOrder ?? 0) - (second.sortOrder ?? 0),
+                )
+                .map((variant) => ({
+                  id: variant.id,
+                  name: variant.name,
+                  price: variant.priceInPence / 100,
+                }));
 
-            return {
-              id: product.id,
-              name: product.name,
-              description: product.description ?? "",
-              imageUrl: product.imageKey ?? "/src/assets/hero.png",
-              category: product.category as Product["category"],
-              available: product.isActive,
-              variants,
-              deliveryOptions: {
-                nationwide: product.nationwideDelivery,
-                manchester: product.manchesterDelivery,
-                collection: product.collectionAvailable,
-              },
-            } satisfies Product;
+              return {
+                id: product.id,
+                name: product.name,
+                description: product.description ?? "",
+                imageUrl: product.imageKey ?? "/src/assets/hero.png",
+                category: product.category as Product["category"],
+                available: product.isActive,
+                variants,
+                deliveryOptions: {
+                  nationwide: product.nationwideDelivery,
+                  manchester: product.manchesterDelivery,
+                  collection: product.collectionAvailable,
+                },
+              } satisfies Product;
             }),
         );
 

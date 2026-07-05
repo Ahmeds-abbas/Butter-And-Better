@@ -1,9 +1,51 @@
 import { useEffect, useState } from "react";
+import { fetchAuthSession } from "aws-amplify/auth";
 import { Link } from "react-router-dom";
 
 import ProductCard from "../components/products/ProductCard";
 import { dataClient } from "../lib/amplifyClient";
 import type { Product } from "../types/product";
+
+type ProductReadAuthMode = "userPool" | "iam";
+
+async function getProductReadAuthModes(): Promise<ProductReadAuthMode[]> {
+  try {
+    const session = await fetchAuthSession();
+
+    if (session.tokens?.accessToken) {
+      return ["userPool", "iam"];
+    }
+  } catch {
+    // Guest shoppers should read with IAM through the identity pool.
+  }
+
+  return ["iam", "userPool"];
+}
+
+async function listProductsWithFallback() {
+  const authModes = await getProductReadAuthModes();
+  let lastError: unknown;
+
+  for (const authMode of authModes) {
+    try {
+      const response = await dataClient.models.Product.list({ authMode });
+
+      if (response.errors?.length && response.data.length === 0) {
+        throw new Error(
+          response.errors.map((error) => error.message).join(", "),
+        );
+      }
+
+      return { authMode, response };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Could not load products.");
+}
 
 function HomePage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -18,9 +60,10 @@ function HomePage() {
       setLoadError("");
 
       try {
-        const productResponse = await dataClient.models.Product.list();
+        const { authMode, response: productResponse } =
+          await listProductsWithFallback();
 
-        if (productResponse.errors?.length) {
+        if (productResponse.errors?.length && productResponse.data.length === 0) {
           throw new Error(
             productResponse.errors.map((error) => error.message).join(", "),
           );
@@ -32,9 +75,14 @@ function HomePage() {
 
         const loadedProducts: Product[] = await Promise.all(
           activeProducts.map(async (product) => {
-            const variantResponse = await product.variants();
+            const variantResponse = await product.variants({
+              authMode,
+            });
 
-            if (variantResponse.errors?.length) {
+            if (
+              variantResponse.errors?.length &&
+              variantResponse.data.length === 0
+            ) {
               throw new Error(
                 variantResponse.errors
                   .map((error) => error.message)
@@ -143,4 +191,4 @@ function HomePage() {
   );
 }
 
-export default HomePage;np
+export default HomePage;
