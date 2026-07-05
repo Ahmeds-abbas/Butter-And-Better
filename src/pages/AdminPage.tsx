@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AdminOrdersPanel from "../components/admin/AdminOrdersPanel";
+import AdminSectionTabs from "../components/admin/AdminSectionTabs";
 import { dataClient } from "../lib/amplifyClient";
+import type { AdminSection } from "../types/admin";
 
 type AdminVariant = {
   id: string;
@@ -175,6 +178,8 @@ function removeProductMessage(
 }
 
 function AdminPage() {
+  const [activeSection, setActiveSection] =
+    useState<AdminSection>("products");
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -1037,13 +1042,20 @@ function AdminPage() {
           type="button"
           className="secondary-button"
           onClick={() => void loadProducts()}
-          disabled={isLoading}
+          disabled={activeSection !== "products" || isLoading}
         >
-          {isLoading ? "Refreshing..." : "Refresh catalogue"}
+          {isLoading && activeSection === "products"
+            ? "Refreshing..."
+            : "Refresh catalogue"}
         </button>
       </section>
 
-      {!isLoading && !loadError && (
+      <AdminSectionTabs
+        activeSection={activeSection}
+        onSectionChange={setActiveSection}
+      />
+
+      {activeSection === "products" && !isLoading && !loadError && (
         <section className="admin-stats" aria-label="Catalogue summary">
           <article className="admin-stat-card">
             <span>Total products</span>
@@ -1067,13 +1079,13 @@ function AdminPage() {
         </section>
       )}
 
-      {isLoading && (
+      {activeSection === "products" && isLoading && (
         <section className="admin-state-message" aria-live="polite">
           <p>Loading products...</p>
         </section>
       )}
 
-      {!isLoading && loadError && (
+      {activeSection === "products" && !isLoading && loadError && (
         <section className="admin-state-message" role="alert">
           <h2>Something went wrong</h2>
           <p>{loadError}</p>
@@ -1088,7 +1100,7 @@ function AdminPage() {
         </section>
       )}
 
-      {!isLoading && !loadError && actionError && (
+      {activeSection === "products" && !isLoading && !loadError && actionError && (
         <div className="admin-action-error" role="alert">
           <span>{actionError}</span>
 
@@ -1102,13 +1114,16 @@ function AdminPage() {
         </div>
       )}
 
-      {!isLoading && !loadError && deleteSuccessMessage && (
+      {activeSection === "products" &&
+        !isLoading &&
+        !loadError &&
+        deleteSuccessMessage && (
         <div className="admin-product-message admin-product-message-success">
           {deleteSuccessMessage}
         </div>
       )}
 
-      {!isLoading && !loadError && (
+      {activeSection === "products" && !isLoading && !loadError && (
         <section className="admin-products">
           <div className="section-heading admin-products-heading">
             <div>
@@ -1824,6 +1839,8 @@ function AdminPage() {
           </div>
         </section>
       )}
+
+      {activeSection === "orders" && <AdminOrdersPanel />}
     </main>
   );
 }
