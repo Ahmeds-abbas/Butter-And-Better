@@ -1090,6 +1090,13 @@
   gap: 1.5rem;
 }
 
+.admin-products-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .admin-product-card {
   display: flex;
   flex-direction: column;
@@ -1271,6 +1278,10 @@
   background: #fbfaf8;
 }
 
+.admin-create-panel {
+  margin-bottom: 1.5rem;
+}
+
 .admin-edit-heading {
   display: flex;
   align-items: flex-start;
@@ -1363,6 +1374,22 @@
   background: #ffffff;
 }
 
+.admin-create-variant-actions {
+  display: grid;
+  gap: 0.5rem;
+  align-self: stretch;
+}
+
+.admin-create-variant-actions span {
+  color: #786f67;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.admin-add-variant-button {
+  justify-self: start;
+}
+
 .admin-edit-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1388,7 +1415,8 @@
 
 @media (max-width: 640px) {
   .admin-dashboard-header,
-  .admin-product-top {
+  .admin-product-top,
+  .admin-products-heading {
     flex-direction: column;
   }
 
@@ -1412,5 +1440,11 @@
   .admin-edit-grid,
   .admin-edit-variant {
     grid-template-columns: 1fr;
+  }
+
+  .admin-add-variant-button,
+  .admin-products-heading .primary-button,
+  .admin-create-variant-actions button {
+    width: 100%;
   }
 }

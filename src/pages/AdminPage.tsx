@@ -31,6 +31,18 @@ type ProductUpdateInput = Parameters<
 type ProductVariantUpdateInput = Parameters<
   typeof dataClient.models.ProductVariant.update
 >[0];
+type ProductCreateInput = Parameters<
+  typeof dataClient.models.Product.create
+>[0];
+type ProductVariantCreateInput = Parameters<
+  typeof dataClient.models.ProductVariant.create
+>[0];
+type ProductDeleteInput = Parameters<
+  typeof dataClient.models.Product.delete
+>[0];
+type ProductVariantDeleteInput = Parameters<
+  typeof dataClient.models.ProductVariant.delete
+>[0];
 
 type VariantDraft = {
   id: string;
@@ -54,7 +66,46 @@ type ProductMessage = {
   text: string;
 };
 
+type NewVariantDraft = {
+  draftId: string;
+  name: string;
+  priceInPounds: string;
+  isActive: boolean;
+};
+
+type NewProductDraft = {
+  name: string;
+  category: string;
+  description: string;
+  isActive: boolean;
+  nationwideDelivery: boolean;
+  manchesterDelivery: boolean;
+  collectionAvailable: boolean;
+  variants: NewVariantDraft[];
+};
+
+type CreateValidationMessages = Record<string, string>;
+
 const pricePattern = /^\d+(\.\d{1,2})?$/;
+
+function createId(prefix: string) {
+  const randomId =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+
+  return `${prefix}-${randomId}`;
+}
+
+function createSlug(name: string, id: string) {
+  const normalizedName = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+  return `${normalizedName || "product"}-${id.slice(-8)}`;
+}
 
 function formatPenceAsPounds(priceInPence: number) {
   return (priceInPence / 100).toFixed(2);
@@ -90,6 +141,28 @@ function createDraftFromProduct(product: AdminProduct): ProductDraft {
   };
 }
 
+function createBlankVariantDraft(): NewVariantDraft {
+  return {
+    draftId: createId("variant-draft"),
+    name: "",
+    priceInPounds: "",
+    isActive: true,
+  };
+}
+
+function createBlankProductDraft(): NewProductDraft {
+  return {
+    name: "",
+    category: "",
+    description: "",
+    isActive: true,
+    nationwideDelivery: true,
+    manchesterDelivery: true,
+    collectionAvailable: true,
+    variants: [createBlankVariantDraft()],
+  };
+}
+
 function removeProductMessage(
   messages: Record<string, ProductMessage>,
   productId: string,
@@ -116,6 +189,16 @@ function AdminPage() {
   const [productMessages, setProductMessages] = useState<
     Record<string, ProductMessage>
   >({});
+  const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
+  const [newProductDraft, setNewProductDraft] = useState<NewProductDraft>(() =>
+    createBlankProductDraft(),
+  );
+  const [createValidationMessages, setCreateValidationMessages] =
+    useState<CreateValidationMessages>({});
+  const [isCreatingProduct, setIsCreatingProduct] = useState(false);
+  const [createMessage, setCreateMessage] = useState<ProductMessage | null>(
+    null,
+  );
 
   const loadProducts = useCallback(async () => {
     setIsLoading(true);
@@ -258,6 +341,12 @@ function AdminPage() {
     }
   }
 
+  function sortProductsByName(nextProducts: AdminProduct[]) {
+    return [...nextProducts].sort((first, second) =>
+      first.name.localeCompare(second.name),
+    );
+  }
+
   function startEditingProduct(product: AdminProduct) {
     setEditingProductId(product.id);
     setProductDraft(createDraftFromProduct(product));
@@ -271,6 +360,22 @@ function AdminPage() {
     setEditingProductId(null);
     setProductDraft(null);
     setValidationMessages([]);
+  }
+
+  function openCreatePanel() {
+    setEditingProductId(null);
+    setProductDraft(null);
+    setValidationMessages([]);
+    setIsCreatePanelOpen(true);
+    setCreateMessage(null);
+    setCreateValidationMessages({});
+  }
+
+  function cancelCreateProduct() {
+    setIsCreatePanelOpen(false);
+    setNewProductDraft(createBlankProductDraft());
+    setCreateValidationMessages({});
+    setCreateMessage(null);
   }
 
   function updateProductDraft(
@@ -309,6 +414,56 @@ function AdminPage() {
     );
   }
 
+  function updateNewProductDraft(
+    field: Exclude<keyof NewProductDraft, "variants">,
+    value: string | boolean,
+  ) {
+    setNewProductDraft((currentDraft) => ({
+      ...currentDraft,
+      [field]: value,
+    }));
+  }
+
+  function updateNewVariantDraft(
+    draftId: string,
+    field: keyof Omit<NewVariantDraft, "draftId">,
+    value: string | boolean,
+  ) {
+    setNewProductDraft((currentDraft) => ({
+      ...currentDraft,
+      variants: currentDraft.variants.map((variant) =>
+        variant.draftId === draftId
+          ? {
+              ...variant,
+              [field]: value,
+            }
+          : variant,
+      ),
+    }));
+  }
+
+  function addNewVariantDraft() {
+    setNewProductDraft((currentDraft) => ({
+      ...currentDraft,
+      variants: [...currentDraft.variants, createBlankVariantDraft()],
+    }));
+  }
+
+  function removeNewVariantDraft(draftId: string) {
+    setNewProductDraft((currentDraft) => {
+      if (currentDraft.variants.length === 1) {
+        return currentDraft;
+      }
+
+      return {
+        ...currentDraft,
+        variants: currentDraft.variants.filter(
+          (variant) => variant.draftId !== draftId,
+        ),
+      };
+    });
+  }
+
   function validateProductDraft(draft: ProductDraft) {
     const messages: string[] = [];
 
@@ -337,6 +492,55 @@ function AdminPage() {
     }
 
     return [...new Set(messages)];
+  }
+
+  function validateNewProductDraft(draft: NewProductDraft) {
+    const messages: CreateValidationMessages = {};
+
+    if (draft.name.trim() === "") {
+      messages.name = "Product name is required.";
+    }
+
+    if (draft.category.trim() === "") {
+      messages.category = "Category is required.";
+    }
+
+    if (draft.description.trim() === "") {
+      messages.description = "Description is required.";
+    }
+
+    if (draft.variants.length === 0) {
+      messages.variants = "Add at least one variant.";
+    }
+
+    const seenVariantNames = new Set<string>();
+
+    draft.variants.forEach((variant, index) => {
+      const variantName = variant.name.trim();
+      const nameKey = `variant-${variant.draftId}-name`;
+      const priceKey = `variant-${variant.draftId}-price`;
+
+      if (variantName === "") {
+        messages[nameKey] = `Variant ${index + 1} name is required.`;
+      } else {
+        const normalizedName = variantName.toLowerCase();
+
+        if (seenVariantNames.has(normalizedName)) {
+          messages[nameKey] = "Variant names must be unique.";
+        }
+
+        seenVariantNames.add(normalizedName);
+      }
+
+      if (variant.priceInPounds.trim() === "") {
+        messages[priceKey] = `Variant ${index + 1} price is required.`;
+      } else if (parsePoundsToPence(variant.priceInPounds) === null) {
+        messages[priceKey] =
+          "Enter a valid non-negative price with no more than two decimals.";
+      }
+    });
+
+    return messages;
   }
 
   async function saveProductChanges(product: AdminProduct) {
@@ -495,6 +699,167 @@ function AdminPage() {
     }
   }
 
+  async function cleanupCreatedProduct(
+    productId: string,
+    createdVariantIds: string[],
+  ) {
+    for (const variantId of createdVariantIds) {
+      try {
+        const deleteVariantInput = {
+          id: variantId,
+        } as unknown as ProductVariantDeleteInput;
+
+        await dataClient.models.ProductVariant.delete(deleteVariantInput, {
+          authMode: "userPool",
+        });
+      } catch (error) {
+        console.error(`Failed to clean up variant ${variantId}:`, error);
+      }
+    }
+
+    try {
+      const deleteProductInput = {
+        id: productId,
+      } as unknown as ProductDeleteInput;
+
+      await dataClient.models.Product.delete(deleteProductInput, {
+        authMode: "userPool",
+      });
+    } catch (error) {
+      console.error(`Failed to clean up product ${productId}:`, error);
+    }
+  }
+
+  async function createProduct() {
+    const messages = validateNewProductDraft(newProductDraft);
+
+    if (Object.keys(messages).length > 0) {
+      setCreateValidationMessages(messages);
+      return;
+    }
+
+    const productId = createId("product");
+    const productSlug = createSlug(newProductDraft.name, productId);
+    const createdVariantIds: string[] = [];
+    const nextVariants = newProductDraft.variants.map((variant, index) => {
+      const priceInPence = parsePoundsToPence(variant.priceInPounds);
+
+      if (priceInPence === null) {
+        throw new Error("Invalid price.");
+      }
+
+      return {
+        id: createId("variant"),
+        productId,
+        name: variant.name.trim(),
+        priceInPence,
+        isActive: variant.isActive,
+        stockQuantity: null,
+        sortOrder: index + 1,
+      };
+    });
+
+    setIsCreatingProduct(true);
+    setCreateValidationMessages({});
+    setCreateMessage(null);
+
+    try {
+      const productInput = {
+        id: productId,
+        name: newProductDraft.name.trim(),
+        slug: productSlug,
+        description: newProductDraft.description.trim(),
+        category: newProductDraft.category.trim(),
+        imageKey: "",
+        isActive: newProductDraft.isActive,
+        nationwideDelivery: newProductDraft.nationwideDelivery,
+        manchesterDelivery: newProductDraft.manchesterDelivery,
+        collectionAvailable: newProductDraft.collectionAvailable,
+      } as unknown as ProductCreateInput;
+
+      const productResponse = await dataClient.models.Product.create(
+        productInput,
+        {
+          authMode: "userPool",
+        },
+      );
+
+      if (productResponse.errors?.length || !productResponse.data) {
+        throw new Error(
+          productResponse.errors?.map((error) => error.message).join(", ") ??
+            "No product returned after create.",
+        );
+      }
+
+      try {
+        for (const variant of nextVariants) {
+          const variantInput = {
+            id: variant.id,
+            productId: variant.productId,
+            name: variant.name,
+            priceInPence: variant.priceInPence,
+            isActive: variant.isActive,
+            stockQuantity: variant.stockQuantity,
+            sortOrder: variant.sortOrder,
+          } as unknown as ProductVariantCreateInput;
+
+          const variantResponse =
+            await dataClient.models.ProductVariant.create(variantInput, {
+              authMode: "userPool",
+            });
+
+          if (variantResponse.errors?.length || !variantResponse.data) {
+            throw new Error(
+              variantResponse.errors
+                ?.map((error) => error.message)
+                .join(", ") ?? `No variant returned after creating ${variant.name}.`,
+            );
+          }
+
+          createdVariantIds.push(variant.id);
+        }
+      } catch (error) {
+        await cleanupCreatedProduct(productId, createdVariantIds);
+        throw error;
+      }
+
+      const createdProduct: AdminProduct = {
+        id: productId,
+        name: newProductDraft.name.trim(),
+        slug: productSlug,
+        category: newProductDraft.category.trim(),
+        description: newProductDraft.description.trim(),
+        imageKey: "",
+        isActive: newProductDraft.isActive,
+        nationwideDelivery: newProductDraft.nationwideDelivery,
+        manchesterDelivery: newProductDraft.manchesterDelivery,
+        collectionAvailable: newProductDraft.collectionAvailable,
+        variants: nextVariants,
+      };
+
+      setProducts((currentProducts) =>
+        sortProductsByName([...currentProducts, createdProduct]),
+      );
+      setProductMessages((currentMessages) => ({
+        ...currentMessages,
+        [productId]: {
+          type: "success",
+          text: `${createdProduct.name} was created.`,
+        },
+      }));
+      setNewProductDraft(createBlankProductDraft());
+      setIsCreatePanelOpen(false);
+    } catch (error) {
+      console.error("Failed to create product:", error);
+      setCreateMessage({
+        type: "error",
+        text: "Could not create the product. The existing catalogue is unchanged.",
+      });
+    } finally {
+      setIsCreatingProduct(false);
+    }
+  }
+
   return (
     <main className="page admin-dashboard">
       <section className="page-header admin-dashboard-header">
@@ -575,10 +940,289 @@ function AdminPage() {
 
       {!isLoading && !loadError && (
         <section className="admin-products">
-          <div className="section-heading">
-            <p className="eyebrow">Catalogue</p>
-            <h2>Products</h2>
+          <div className="section-heading admin-products-heading">
+            <div>
+              <p className="eyebrow">Catalogue</p>
+              <h2>Products</h2>
+            </div>
+
+            <button
+              type="button"
+              className="primary-button"
+              disabled={isCreatingProduct}
+              onClick={openCreatePanel}
+            >
+              Add product
+            </button>
           </div>
+
+          {isCreatePanelOpen && (
+            <form
+              className="admin-edit-panel admin-create-panel"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void createProduct();
+              }}
+            >
+              <div className="admin-edit-heading">
+                <div>
+                  <p className="eyebrow">New product</p>
+                  <h4>Add product</h4>
+                </div>
+
+                {isCreatingProduct && <span>Creating...</span>}
+              </div>
+
+              {createMessage && (
+                <div
+                  className={`admin-product-message admin-product-message-${createMessage.type}`}
+                  role="alert"
+                >
+                  {createMessage.text}
+                </div>
+              )}
+
+              {createValidationMessages.variants && (
+                <div className="validation-summary" role="alert">
+                  <p>{createValidationMessages.variants}</p>
+                </div>
+              )}
+
+              <div className="admin-edit-grid">
+                <label>
+                  <span>Product name</span>
+                  <input
+                    type="text"
+                    value={newProductDraft.name}
+                    disabled={isCreatingProduct}
+                    onChange={(event) =>
+                      updateNewProductDraft("name", event.target.value)
+                    }
+                  />
+                  {createValidationMessages.name && (
+                    <p className="form-error">
+                      {createValidationMessages.name}
+                    </p>
+                  )}
+                </label>
+
+                <label>
+                  <span>Category</span>
+                  <input
+                    type="text"
+                    value={newProductDraft.category}
+                    disabled={isCreatingProduct}
+                    onChange={(event) =>
+                      updateNewProductDraft("category", event.target.value)
+                    }
+                  />
+                  {createValidationMessages.category && (
+                    <p className="form-error">
+                      {createValidationMessages.category}
+                    </p>
+                  )}
+                </label>
+
+                <label className="admin-edit-wide">
+                  <span>Description</span>
+                  <textarea
+                    value={newProductDraft.description}
+                    disabled={isCreatingProduct}
+                    rows={3}
+                    onChange={(event) =>
+                      updateNewProductDraft("description", event.target.value)
+                    }
+                  />
+                  {createValidationMessages.description && (
+                    <p className="form-error">
+                      {createValidationMessages.description}
+                    </p>
+                  )}
+                </label>
+              </div>
+
+              <fieldset className="admin-edit-options">
+                <legend>Status and delivery</legend>
+
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={newProductDraft.isActive}
+                    disabled={isCreatingProduct}
+                    onChange={(event) =>
+                      updateNewProductDraft("isActive", event.target.checked)
+                    }
+                  />
+                  <span>Product active</span>
+                </label>
+
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={newProductDraft.nationwideDelivery}
+                    disabled={isCreatingProduct}
+                    onChange={(event) =>
+                      updateNewProductDraft(
+                        "nationwideDelivery",
+                        event.target.checked,
+                      )
+                    }
+                  />
+                  <span>Nationwide delivery</span>
+                </label>
+
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={newProductDraft.manchesterDelivery}
+                    disabled={isCreatingProduct}
+                    onChange={(event) =>
+                      updateNewProductDraft(
+                        "manchesterDelivery",
+                        event.target.checked,
+                      )
+                    }
+                  />
+                  <span>Manchester delivery</span>
+                </label>
+
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={newProductDraft.collectionAvailable}
+                    disabled={isCreatingProduct}
+                    onChange={(event) =>
+                      updateNewProductDraft(
+                        "collectionAvailable",
+                        event.target.checked,
+                      )
+                    }
+                  />
+                  <span>Collection available</span>
+                </label>
+              </fieldset>
+
+              <div className="admin-edit-variants">
+                <div className="admin-variant-heading">
+                  <h4>Variants</h4>
+                  <span>{newProductDraft.variants.length}</span>
+                </div>
+
+                {newProductDraft.variants.map((variant, index) => {
+                  const nameError =
+                    createValidationMessages[
+                      `variant-${variant.draftId}-name`
+                    ];
+                  const priceError =
+                    createValidationMessages[
+                      `variant-${variant.draftId}-price`
+                    ];
+
+                  return (
+                    <div key={variant.draftId} className="admin-edit-variant">
+                      <label>
+                        <span>Variant name</span>
+                        <input
+                          type="text"
+                          value={variant.name}
+                          disabled={isCreatingProduct}
+                          onChange={(event) =>
+                            updateNewVariantDraft(
+                              variant.draftId,
+                              "name",
+                              event.target.value,
+                            )
+                          }
+                        />
+                        {nameError && <p className="form-error">{nameError}</p>}
+                      </label>
+
+                      <label>
+                        <span>Price in pounds</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={variant.priceInPounds}
+                          disabled={isCreatingProduct}
+                          onChange={(event) =>
+                            updateNewVariantDraft(
+                              variant.draftId,
+                              "priceInPounds",
+                              event.target.value,
+                            )
+                          }
+                        />
+                        {priceError && (
+                          <p className="form-error">{priceError}</p>
+                        )}
+                      </label>
+
+                      <label className="admin-edit-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={variant.isActive}
+                          disabled={isCreatingProduct}
+                          onChange={(event) =>
+                            updateNewVariantDraft(
+                              variant.draftId,
+                              "isActive",
+                              event.target.checked,
+                            )
+                          }
+                        />
+                        <span>Variant active</span>
+                      </label>
+
+                      <div className="admin-create-variant-actions">
+                        <span>Sort order {index + 1}</span>
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          disabled={
+                            isCreatingProduct ||
+                            newProductDraft.variants.length === 1
+                          }
+                          onClick={() =>
+                            removeNewVariantDraft(variant.draftId)
+                          }
+                        >
+                          Remove variant
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  className="secondary-button admin-add-variant-button"
+                  disabled={isCreatingProduct}
+                  onClick={addNewVariantDraft}
+                >
+                  Add variant
+                </button>
+              </div>
+
+              <div className="admin-edit-actions">
+                <button
+                  type="submit"
+                  className="primary-button"
+                  disabled={isCreatingProduct}
+                >
+                  {isCreatingProduct ? "Creating..." : "Create product"}
+                </button>
+
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={isCreatingProduct}
+                  onClick={cancelCreateProduct}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
 
           <div className="admin-product-grid">
             {products.map((product) => (
