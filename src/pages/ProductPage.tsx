@@ -1,9 +1,54 @@
 import { useEffect, useState } from "react";
+import { fetchAuthSession } from "aws-amplify/auth";
 import { Link, useParams } from "react-router-dom";
 
 import { useBasket } from "../hooks/useBasket";
 import { dataClient } from "../lib/amplifyClient";
 import type { Product } from "../types/product";
+
+type ProductReadAuthMode = "userPool" | "iam";
+
+async function getProductReadAuthModes(): Promise<ProductReadAuthMode[]> {
+  try {
+    const session = await fetchAuthSession();
+
+    if (session.tokens?.accessToken) {
+      return ["userPool", "iam"];
+    }
+  } catch {
+    // Guest shoppers should read with IAM through the identity pool.
+  }
+
+  return ["iam", "userPool"];
+}
+
+async function getProductWithFallback(productId: string) {
+  const authModes = await getProductReadAuthModes();
+  let lastError: unknown;
+
+  for (const authMode of authModes) {
+    try {
+      const response = await dataClient.models.Product.get(
+        { id: productId },
+        { authMode },
+      );
+
+      if (response.errors?.length && !response.data) {
+        throw new Error(
+          response.errors.map((error) => error.message).join(", "),
+        );
+      }
+
+      return { authMode, response };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Could not load product.");
+}
 
 function ProductPage() {
   const { productId } = useParams<{ productId: string }>();
@@ -29,11 +74,10 @@ function ProductPage() {
       setLoadError("");
 
       try {
-        const productResponse = await dataClient.models.Product.get({
-          id: productId,
-        });
+        const { authMode, response: productResponse } =
+          await getProductWithFallback(productId);
 
-        if (productResponse.errors?.length) {
+        if (productResponse.errors?.length && !productResponse.data) {
           throw new Error(
             productResponse.errors.map((error) => error.message).join(", "),
           );
@@ -49,9 +93,9 @@ function ProductPage() {
           return;
         }
 
-        const variantResponse = await backendProduct.variants();
+        const variantResponse = await backendProduct.variants({ authMode });
 
-        if (variantResponse.errors?.length) {
+        if (variantResponse.errors?.length && variantResponse.data.length === 0) {
           throw new Error(
             variantResponse.errors.map((error) => error.message).join(", "),
           );

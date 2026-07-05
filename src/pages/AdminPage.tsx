@@ -3,17 +3,21 @@ import { dataClient } from "../lib/amplifyClient";
 
 type AdminVariant = {
   id: string;
+  productId: string;
   name: string;
   priceInPence: number;
   isActive: boolean;
+  stockQuantity: number | null;
   sortOrder: number | null;
 };
 
 type AdminProduct = {
   id: string;
   name: string;
+  slug: string;
   category: string;
   description: string;
+  imageKey: string;
   isActive: boolean;
   nationwideDelivery: boolean;
   manchesterDelivery: boolean;
@@ -24,6 +28,78 @@ type AdminProduct = {
 type ProductUpdateInput = Parameters<
   typeof dataClient.models.Product.update
 >[0];
+type ProductVariantUpdateInput = Parameters<
+  typeof dataClient.models.ProductVariant.update
+>[0];
+
+type VariantDraft = {
+  id: string;
+  name: string;
+  priceInPounds: string;
+  isActive: boolean;
+};
+
+type ProductDraft = {
+  name: string;
+  category: string;
+  description: string;
+  nationwideDelivery: boolean;
+  manchesterDelivery: boolean;
+  collectionAvailable: boolean;
+  variants: VariantDraft[];
+};
+
+type ProductMessage = {
+  type: "success" | "error";
+  text: string;
+};
+
+const pricePattern = /^\d+(\.\d{1,2})?$/;
+
+function formatPenceAsPounds(priceInPence: number) {
+  return (priceInPence / 100).toFixed(2);
+}
+
+function parsePoundsToPence(price: string) {
+  const trimmedPrice = price.trim();
+
+  if (!pricePattern.test(trimmedPrice)) {
+    return null;
+  }
+
+  const [pounds, pence = ""] = trimmedPrice.split(".");
+  const normalizedPence = pence.padEnd(2, "0");
+
+  return Number(pounds) * 100 + Number(normalizedPence);
+}
+
+function createDraftFromProduct(product: AdminProduct): ProductDraft {
+  return {
+    name: product.name,
+    category: product.category,
+    description: product.description,
+    nationwideDelivery: product.nationwideDelivery,
+    manchesterDelivery: product.manchesterDelivery,
+    collectionAvailable: product.collectionAvailable,
+    variants: product.variants.map((variant) => ({
+      id: variant.id,
+      name: variant.name,
+      priceInPounds: formatPenceAsPounds(variant.priceInPence),
+      isActive: variant.isActive,
+    })),
+  };
+}
+
+function removeProductMessage(
+  messages: Record<string, ProductMessage>,
+  productId: string,
+) {
+  return Object.fromEntries(
+    Object.entries(messages).filter(([messageProductId]) => {
+      return messageProductId !== productId;
+    }),
+  );
+}
 
 function AdminPage() {
   const [products, setProducts] = useState<AdminProduct[]>([]);
@@ -33,6 +109,13 @@ function AdminPage() {
   const [updatingProductId, setUpdatingProductId] = useState<string | null>(
     null,
   );
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [productDraft, setProductDraft] = useState<ProductDraft | null>(null);
+  const [validationMessages, setValidationMessages] = useState<string[]>([]);
+  const [savingProductId, setSavingProductId] = useState<string | null>(null);
+  const [productMessages, setProductMessages] = useState<
+    Record<string, ProductMessage>
+  >({});
 
   const loadProducts = useCallback(async () => {
     setIsLoading(true);
@@ -66,8 +149,10 @@ function AdminPage() {
           return {
             id: product.id,
             name: product.name,
+            slug: product.slug,
             category: product.category,
             description: product.description ?? "",
+            imageKey: product.imageKey ?? "",
             isActive: product.isActive,
             nationwideDelivery: product.nationwideDelivery,
             manchesterDelivery: product.manchesterDelivery,
@@ -75,9 +160,11 @@ function AdminPage() {
             variants: variantResponse.data
               .map((variant) => ({
                 id: variant.id,
+                productId: variant.productId,
                 name: variant.name,
                 priceInPence: variant.priceInPence,
                 isActive: variant.isActive,
+                stockQuantity: variant.stockQuantity ?? null,
                 sortOrder: variant.sortOrder ?? null,
               }))
               .sort(
@@ -130,8 +217,10 @@ function AdminPage() {
       const updateInput = {
         id: product.id,
         name: product.name,
+        slug: product.slug,
         category: product.category,
         description: product.description,
+        imageKey: product.imageKey,
         isActive: nextIsActive,
         nationwideDelivery: product.nationwideDelivery,
         manchesterDelivery: product.manchesterDelivery,
@@ -166,6 +255,243 @@ function AdminPage() {
       );
     } finally {
       setUpdatingProductId(null);
+    }
+  }
+
+  function startEditingProduct(product: AdminProduct) {
+    setEditingProductId(product.id);
+    setProductDraft(createDraftFromProduct(product));
+    setValidationMessages([]);
+    setProductMessages((currentMessages) =>
+      removeProductMessage(currentMessages, product.id),
+    );
+  }
+
+  function cancelEditingProduct() {
+    setEditingProductId(null);
+    setProductDraft(null);
+    setValidationMessages([]);
+  }
+
+  function updateProductDraft(
+    field: Exclude<keyof ProductDraft, "variants">,
+    value: string | boolean,
+  ) {
+    setProductDraft((currentDraft) =>
+      currentDraft
+        ? {
+            ...currentDraft,
+            [field]: value,
+          }
+        : currentDraft,
+    );
+  }
+
+  function updateVariantDraft(
+    variantId: string,
+    field: keyof Omit<VariantDraft, "id">,
+    value: string | boolean,
+  ) {
+    setProductDraft((currentDraft) =>
+      currentDraft
+        ? {
+            ...currentDraft,
+            variants: currentDraft.variants.map((variant) =>
+              variant.id === variantId
+                ? {
+                    ...variant,
+                    [field]: value,
+                  }
+                : variant,
+            ),
+          }
+        : currentDraft,
+    );
+  }
+
+  function validateProductDraft(draft: ProductDraft) {
+    const messages: string[] = [];
+
+    if (draft.name.trim() === "") {
+      messages.push("Product name is required.");
+    }
+
+    if (draft.category.trim() === "") {
+      messages.push("Category is required.");
+    }
+
+    if (draft.description.trim() === "") {
+      messages.push("Description is required.");
+    }
+
+    for (const variant of draft.variants) {
+      if (variant.name.trim() === "") {
+        messages.push("Every variant needs a name.");
+      }
+
+      if (parsePoundsToPence(variant.priceInPounds) === null) {
+        messages.push(
+          `${variant.name.trim() || "Every variant"} needs a valid price with no more than two decimals.`,
+        );
+      }
+    }
+
+    return [...new Set(messages)];
+  }
+
+  async function saveProductChanges(product: AdminProduct) {
+    if (!productDraft) {
+      return;
+    }
+
+    const nextValidationMessages = validateProductDraft(productDraft);
+
+    if (nextValidationMessages.length > 0) {
+      setValidationMessages(nextValidationMessages);
+      return;
+    }
+
+    const nextVariants = productDraft.variants.map((variantDraft) => {
+      const priceInPence = parsePoundsToPence(variantDraft.priceInPounds);
+
+      if (priceInPence === null) {
+        throw new Error("Invalid price.");
+      }
+
+      return {
+        ...variantDraft,
+        priceInPence,
+      };
+    });
+
+    setSavingProductId(product.id);
+    setValidationMessages([]);
+    setProductMessages((currentMessages) =>
+      removeProductMessage(currentMessages, product.id),
+    );
+
+    try {
+      const productInput = {
+        id: product.id,
+        name: productDraft.name.trim(),
+        slug: product.slug,
+        category: productDraft.category.trim(),
+        description: productDraft.description.trim(),
+        imageKey: product.imageKey,
+        isActive: product.isActive,
+        nationwideDelivery: productDraft.nationwideDelivery,
+        manchesterDelivery: productDraft.manchesterDelivery,
+        collectionAvailable: productDraft.collectionAvailable,
+      } as unknown as ProductUpdateInput;
+
+      const productResponse = await dataClient.models.Product.update(
+        productInput,
+        {
+          authMode: "userPool",
+        },
+      );
+
+      if (productResponse.errors?.length || !productResponse.data) {
+        throw new Error(
+          productResponse.errors?.map((error) => error.message).join(", ") ??
+            "No product returned after update.",
+        );
+      }
+
+      const changedVariantDrafts = nextVariants.filter((variantDraft) => {
+        const originalVariant = product.variants.find(
+          (variant) => variant.id === variantDraft.id,
+        );
+
+        return (
+          originalVariant &&
+          (originalVariant.name !== variantDraft.name.trim() ||
+            originalVariant.priceInPence !== variantDraft.priceInPence ||
+            originalVariant.isActive !== variantDraft.isActive)
+        );
+      });
+
+      for (const variantDraft of changedVariantDrafts) {
+        const originalVariant = product.variants.find(
+          (variant) => variant.id === variantDraft.id,
+        );
+
+        if (!originalVariant) {
+          continue;
+        }
+
+        const variantInput = {
+          id: originalVariant.id,
+          productId: originalVariant.productId,
+          name: variantDraft.name.trim(),
+          priceInPence: variantDraft.priceInPence,
+          isActive: variantDraft.isActive,
+          stockQuantity: originalVariant.stockQuantity,
+          sortOrder: originalVariant.sortOrder,
+        } as unknown as ProductVariantUpdateInput;
+
+        const variantResponse =
+          await dataClient.models.ProductVariant.update(variantInput, {
+            authMode: "userPool",
+          });
+
+        if (variantResponse.errors?.length || !variantResponse.data) {
+          throw new Error(
+            variantResponse.errors?.map((error) => error.message).join(", ") ??
+              `No variant returned after updating ${variantDraft.name}.`,
+          );
+        }
+      }
+
+      const updatedProduct: AdminProduct = {
+        ...product,
+        name: productDraft.name.trim(),
+        category: productDraft.category.trim(),
+        description: productDraft.description.trim(),
+        nationwideDelivery: productDraft.nationwideDelivery,
+        manchesterDelivery: productDraft.manchesterDelivery,
+        collectionAvailable: productDraft.collectionAvailable,
+        variants: product.variants.map((variant) => {
+          const savedVariant = nextVariants.find(
+            (variantDraft) => variantDraft.id === variant.id,
+          );
+
+          return savedVariant
+            ? {
+                ...variant,
+                name: savedVariant.name.trim(),
+                priceInPence: savedVariant.priceInPence,
+                isActive: savedVariant.isActive,
+              }
+            : variant;
+        }),
+      };
+
+      setProducts((currentProducts) =>
+        currentProducts.map((currentProduct) =>
+          currentProduct.id === product.id ? updatedProduct : currentProduct,
+        ),
+      );
+      setProductMessages((currentMessages) => ({
+        ...currentMessages,
+        [product.id]: {
+          type: "success",
+          text: `${updatedProduct.name} was updated.`,
+        },
+      }));
+      setEditingProductId(null);
+      setProductDraft(null);
+    } catch (error) {
+      console.error("Failed to save product:", error);
+      setProductMessages((currentMessages) => ({
+        ...currentMessages,
+        [product.id]: {
+          type: "error",
+          text: `Could not save ${product.name}. The catalogue is unchanged.`,
+        },
+      }));
+    } finally {
+      setSavingProductId(null);
     }
   }
 
@@ -262,6 +588,15 @@ function AdminPage() {
                   product.isActive ? "" : "admin-product-card-inactive"
                 }`}
               >
+                {productMessages[product.id] && (
+                  <div
+                    className={`admin-product-message admin-product-message-${productMessages[product.id].type}`}
+                    role="status"
+                  >
+                    {productMessages[product.id].text}
+                  </div>
+                )}
+
                 <div className="admin-product-top">
                   <div>
                     <p className="eyebrow">{product.category}</p>
@@ -344,6 +679,15 @@ function AdminPage() {
                 <div className="admin-product-actions">
                   <button
                     type="button"
+                    className="secondary-button"
+                    disabled={savingProductId === product.id}
+                    onClick={() => startEditingProduct(product)}
+                  >
+                    Edit product
+                  </button>
+
+                  <button
+                    type="button"
                     className={
                       product.isActive
                         ? "secondary-button"
@@ -359,6 +703,206 @@ function AdminPage() {
                         : "Enable product"}
                   </button>
                 </div>
+
+                {editingProductId === product.id && productDraft && (
+                  <form
+                    className="admin-edit-panel"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void saveProductChanges(product);
+                    }}
+                  >
+                    <div className="admin-edit-heading">
+                      <div>
+                        <p className="eyebrow">Editing</p>
+                        <h4>{product.name}</h4>
+                      </div>
+
+                      {savingProductId === product.id && (
+                        <span>Saving...</span>
+                      )}
+                    </div>
+
+                    {validationMessages.length > 0 && (
+                      <div className="validation-summary" role="alert">
+                        {validationMessages.map((message) => (
+                          <p key={message}>{message}</p>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="admin-edit-grid">
+                      <label>
+                        <span>Product name</span>
+                        <input
+                          type="text"
+                          value={productDraft.name}
+                          disabled={savingProductId === product.id}
+                          onChange={(event) =>
+                            updateProductDraft("name", event.target.value)
+                          }
+                        />
+                      </label>
+
+                      <label>
+                        <span>Category</span>
+                        <input
+                          type="text"
+                          value={productDraft.category}
+                          disabled={savingProductId === product.id}
+                          onChange={(event) =>
+                            updateProductDraft("category", event.target.value)
+                          }
+                        />
+                      </label>
+
+                      <label className="admin-edit-wide">
+                        <span>Description</span>
+                        <textarea
+                          value={productDraft.description}
+                          disabled={savingProductId === product.id}
+                          rows={3}
+                          onChange={(event) =>
+                            updateProductDraft(
+                              "description",
+                              event.target.value,
+                            )
+                          }
+                        />
+                      </label>
+                    </div>
+
+                    <fieldset className="admin-edit-options">
+                      <legend>Delivery options</legend>
+
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={productDraft.nationwideDelivery}
+                          disabled={savingProductId === product.id}
+                          onChange={(event) =>
+                            updateProductDraft(
+                              "nationwideDelivery",
+                              event.target.checked,
+                            )
+                          }
+                        />
+                        <span>Nationwide delivery</span>
+                      </label>
+
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={productDraft.manchesterDelivery}
+                          disabled={savingProductId === product.id}
+                          onChange={(event) =>
+                            updateProductDraft(
+                              "manchesterDelivery",
+                              event.target.checked,
+                            )
+                          }
+                        />
+                        <span>Manchester delivery</span>
+                      </label>
+
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={productDraft.collectionAvailable}
+                          disabled={savingProductId === product.id}
+                          onChange={(event) =>
+                            updateProductDraft(
+                              "collectionAvailable",
+                              event.target.checked,
+                            )
+                          }
+                        />
+                        <span>Collection available</span>
+                      </label>
+                    </fieldset>
+
+                    <div className="admin-edit-variants">
+                      <div className="admin-variant-heading">
+                        <h4>Variants</h4>
+                        <span>{productDraft.variants.length}</span>
+                      </div>
+
+                      {productDraft.variants.map((variant) => (
+                        <div key={variant.id} className="admin-edit-variant">
+                          <label>
+                            <span>Variant name</span>
+                            <input
+                              type="text"
+                              value={variant.name}
+                              disabled={savingProductId === product.id}
+                              onChange={(event) =>
+                                updateVariantDraft(
+                                  variant.id,
+                                  "name",
+                                  event.target.value,
+                                )
+                              }
+                            />
+                          </label>
+
+                          <label>
+                            <span>Price in pounds</span>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={variant.priceInPounds}
+                              disabled={savingProductId === product.id}
+                              onChange={(event) =>
+                                updateVariantDraft(
+                                  variant.id,
+                                  "priceInPounds",
+                                  event.target.value,
+                                )
+                              }
+                            />
+                          </label>
+
+                          <label className="admin-edit-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={variant.isActive}
+                              disabled={savingProductId === product.id}
+                              onChange={(event) =>
+                                updateVariantDraft(
+                                  variant.id,
+                                  "isActive",
+                                  event.target.checked,
+                                )
+                              }
+                            />
+                            <span>Variant active</span>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="admin-edit-actions">
+                      <button
+                        type="submit"
+                        className="primary-button"
+                        disabled={savingProductId === product.id}
+                      >
+                        {savingProductId === product.id
+                          ? "Saving..."
+                          : "Save changes"}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        disabled={savingProductId === product.id}
+                        onClick={cancelEditingProduct}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                )}
               </article>
             ))}
           </div>

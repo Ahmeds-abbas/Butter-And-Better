@@ -1213,7 +1213,26 @@
 }
 
 .admin-product-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   margin-top: auto;
+}
+
+.admin-product-message {
+  padding: 0.85rem 1rem;
+  border-radius: 0.8rem;
+  font-weight: 800;
+}
+
+.admin-product-message-success {
+  color: #36502f;
+  background: #e6efe1;
+}
+
+.admin-product-message-error {
+  color: #74423a;
+  background: #fff0ed;
 }
 
 .admin-action-error {
@@ -1243,6 +1262,123 @@
   background: #ffffff;
 }
 
+.admin-edit-panel {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(115, 133, 97, 0.25);
+  border-radius: 1rem;
+  background: #fbfaf8;
+}
+
+.admin-edit-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-edit-heading h4 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.4rem;
+}
+
+.admin-edit-heading span {
+  color: #36502f;
+  font-weight: 800;
+}
+
+.admin-edit-grid,
+.admin-edit-variant {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.admin-edit-wide {
+  grid-column: 1 / -1;
+}
+
+.admin-edit-panel label,
+.admin-edit-options {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.admin-edit-panel label span,
+.admin-edit-options legend {
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.admin-edit-panel input[type="text"],
+.admin-edit-panel textarea {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.8rem;
+  color: var(--color-brown);
+  background: #ffffff;
+}
+
+.admin-edit-panel input:focus,
+.admin-edit-panel textarea:focus {
+  outline: 2px solid rgba(115, 133, 97, 0.35);
+  outline-offset: 2px;
+}
+
+.admin-edit-options {
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid rgba(87, 54, 21, 0.12);
+  border-radius: 0.9rem;
+  background: #ffffff;
+}
+
+.admin-edit-options label,
+.admin-edit-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.admin-edit-options input,
+.admin-edit-checkbox input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-green);
+}
+
+.admin-edit-variants {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-edit-variant {
+  align-items: end;
+  padding: 1rem;
+  border: 1px solid rgba(87, 54, 21, 0.1);
+  border-radius: 0.9rem;
+  background: #ffffff;
+}
+
+.admin-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.admin-edit-actions button:disabled,
+.admin-product-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.admin-edit-panel .validation-summary p {
+  margin: 0.25rem 0;
+}
+
 @media (max-width: 900px) {
   .admin-stats,
   .admin-product-grid {
@@ -1262,7 +1398,19 @@
   }
 
   .admin-dashboard-header .secondary-button,
-  .admin-product-actions button {
+  .admin-product-actions button,
+  .admin-edit-actions button {
     width: 100%;
+  }
+
+  .admin-edit-heading,
+  .admin-product-actions,
+  .admin-edit-actions {
+    display: grid;
+  }
+
+  .admin-edit-grid,
+  .admin-edit-variant {
+    grid-template-columns: 1fr;
   }
 }
