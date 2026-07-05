@@ -100,7 +100,13 @@ function createOrderUpdateInput(
     stampsEarned: order.stampsEarned,
     rewardDiscountInPence: order.rewardDiscountInPence,
     totalInPence: order.totalInPence,
+    checkoutAccessToken: order.checkoutAccessToken,
+    stripeCheckoutSessionId: order.stripeCheckoutSessionId,
     stripePaymentIntentId: order.stripePaymentIntentId,
+    paidAt: order.paidAt,
+    refundedAt: order.refundedAt,
+    loyaltyProcessedAt: order.loyaltyProcessedAt,
+    loyaltySettled: order.loyaltySettled,
   } as unknown as OrderUpdateInput;
 }
 
@@ -162,7 +168,13 @@ async function mapOrder(order: OrderRecord): Promise<AdminOrder> {
     stampsEarned: order.stampsEarned,
     rewardDiscountInPence: order.rewardDiscountInPence,
     totalInPence: order.totalInPence,
+    checkoutAccessToken: order.checkoutAccessToken ?? null,
+    stripeCheckoutSessionId: order.stripeCheckoutSessionId ?? null,
     stripePaymentIntentId: order.stripePaymentIntentId ?? null,
+    paidAt: order.paidAt ?? null,
+    refundedAt: order.refundedAt ?? null,
+    loyaltyProcessedAt: order.loyaltyProcessedAt ?? null,
+    loyaltySettled: order.loyaltySettled ?? null,
     createdAt: order.createdAt ?? null,
     updatedAt: order.updatedAt ?? null,
     items,
@@ -178,9 +190,6 @@ function AdminOrdersPanel() {
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [statusDrafts, setStatusDrafts] = useState<Record<string, string>>({});
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
-  const [updatingPaymentOrderId, setUpdatingPaymentOrderId] = useState<
-    string | null
-  >(null);
   const [orderMessages, setOrderMessages] = useState<Record<string, ProductMessage>>({});
   const [filters, setFilters] = useState<OrderFilters>(initialFilters);
   const hasLoadedOrdersRef = useRef(false);
@@ -417,67 +426,6 @@ function AdminOrdersPanel() {
     }
   }
 
-  async function markOrderAsPaid(order: AdminOrder) {
-    if (order.paymentStatus === "paid") {
-      return;
-    }
-
-    setUpdatingPaymentOrderId(order.id);
-    setOrderMessages((currentMessages) => {
-      const nextMessages = { ...currentMessages };
-      delete nextMessages[order.id];
-      return nextMessages;
-    });
-
-    try {
-      const updateInput = createOrderUpdateInput(order, {
-        status: order.status,
-        paymentStatus: "paid",
-      });
-
-      const response = await dataClient.models.Order.update(updateInput, {
-        authMode: "userPool",
-      });
-
-      if (response.errors?.length || !response.data) {
-        throw new Error(
-          response.errors?.map((error) => error.message).join(", ") ??
-            "No order returned after payment update.",
-        );
-      }
-
-      setOrders((currentOrders) =>
-        currentOrders.map((currentOrder) =>
-          currentOrder.id === order.id
-            ? {
-                ...currentOrder,
-                paymentStatus: response.data?.paymentStatus ?? "paid",
-                updatedAt: response.data?.updatedAt ?? currentOrder.updatedAt,
-              }
-            : currentOrder,
-        ),
-      );
-      setOrderMessages((currentMessages) => ({
-        ...currentMessages,
-        [order.id]: {
-          type: "success",
-          text: `Order ${order.orderNumber} was manually marked as paid.`,
-        },
-      }));
-    } catch (error) {
-      console.error(`Failed to mark order ${order.id} as paid:`, error);
-      setOrderMessages((currentMessages) => ({
-        ...currentMessages,
-        [order.id]: {
-          type: "error",
-          text: `Could not mark order ${order.orderNumber} as paid.`,
-        },
-      }));
-    } finally {
-      setUpdatingPaymentOrderId(null);
-    }
-  }
-
   const formatters = {
     formatCurrency,
     formatDateTime,
@@ -578,7 +526,6 @@ function AdminOrdersPanel() {
                   isExpanded={expandedOrderId === order.id}
                   selectedStatus={statusDrafts[order.id] ?? order.status}
                   isUpdating={updatingOrderId === order.id}
-                  isUpdatingPayment={updatingPaymentOrderId === order.id}
                   message={orderMessages[order.id]}
                   onToggleExpanded={() =>
                     setExpandedOrderId((currentOrderId) =>
@@ -592,7 +539,6 @@ function AdminOrdersPanel() {
                     }))
                   }
                   onSaveStatus={() => void updateOrderStatus(order)}
-                  onMarkAsPaid={() => void markOrderAsPaid(order)}
                   formatters={formatters}
                 />
               ))}

@@ -18,11 +18,13 @@ type OrderAuthMode = "userPool" | "iam";
 export type CreatedOrderSummary = {
   id: string;
   orderNumber: string;
+  checkoutAccessToken: string;
   firstName: string;
   lastName: string;
   fulfilmentMethod: FulfilmentMethod;
   paymentStatus: "pending";
   totalInPence: number;
+  authMode: OrderAuthMode;
 };
 
 const fulfilmentLabels: Record<FulfilmentMethod, string> = {
@@ -172,6 +174,7 @@ export async function createCheckoutOrder(
 
   const orderId = createId();
   const orderNumber = createOrderNumber(orderId);
+  const checkoutAccessToken = createId();
   const createdOrderItemIds: string[] = [];
 
   const orderInput = {
@@ -200,7 +203,13 @@ export async function createCheckoutOrder(
     stampsEarned: totals.stampsEarned,
     rewardDiscountInPence: totals.rewardDiscountInPence,
     totalInPence: totals.totalInPence,
+    checkoutAccessToken,
+    stripeCheckoutSessionId: null,
     stripePaymentIntentId: null,
+    paidAt: null,
+    refundedAt: null,
+    loyaltyProcessedAt: null,
+    loyaltySettled: false,
   } as unknown as OrderCreateInput;
 
   const orderResponse = await dataClient.models.Order.create(orderInput, {
@@ -252,10 +261,12 @@ export async function createCheckoutOrder(
   return {
     id: orderId,
     orderNumber,
+    checkoutAccessToken,
     firstName: formData.firstName.trim(),
     lastName: formData.lastName.trim(),
     fulfilmentMethod,
     paymentStatus: "pending",
     totalInPence: totals.totalInPence,
+    authMode,
   } satisfies CreatedOrderSummary;
 }

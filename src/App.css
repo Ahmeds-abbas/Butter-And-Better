@@ -1517,17 +1517,12 @@
   margin: 0;
 }
 
-.admin-payment-override {
-  display: grid;
-  gap: 0.7rem;
+.admin-payment-note {
   padding: 0.85rem;
-  border: 1px solid rgba(169, 77, 66, 0.24);
+  border: 1px solid rgba(115, 133, 97, 0.24);
   border-radius: 0.8rem;
-  background: #fff7f4;
-}
-
-.admin-payment-override p {
-  color: #74423a;
+  background: #f2f6ee;
+  color: #36502f;
   font-size: 0.9rem;
   font-weight: 700;
 }

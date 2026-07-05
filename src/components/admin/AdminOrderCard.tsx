@@ -13,12 +13,10 @@ type AdminOrderCardProps = {
   isExpanded: boolean;
   selectedStatus: string;
   isUpdating: boolean;
-  isUpdatingPayment: boolean;
   message?: ProductMessage;
   onToggleExpanded: () => void;
   onStatusChange: (status: string) => void;
   onSaveStatus: () => void;
-  onMarkAsPaid: () => void;
   formatters: FormatterHelpers;
 };
 
@@ -27,12 +25,10 @@ function AdminOrderCard({
   isExpanded,
   selectedStatus,
   isUpdating,
-  isUpdatingPayment,
   message,
   onToggleExpanded,
   onStatusChange,
   onSaveStatus,
-  onMarkAsPaid,
   formatters,
 }: AdminOrderCardProps) {
   const fullName = `${order.firstName} ${order.lastName}`.trim();
@@ -97,11 +93,9 @@ function AdminOrderCard({
           order={order}
           selectedStatus={selectedStatus}
           isUpdating={isUpdating}
-          isUpdatingPayment={isUpdatingPayment}
           message={message}
           onStatusChange={onStatusChange}
           onSaveStatus={onSaveStatus}
-          onMarkAsPaid={onMarkAsPaid}
           formatters={formatters}
         />
       )}

@@ -33,7 +33,13 @@ export type AdminOrder = {
   stampsEarned: number;
   rewardDiscountInPence: number;
   totalInPence: number;
+  checkoutAccessToken: string | null;
+  stripeCheckoutSessionId: string | null;
   stripePaymentIntentId: string | null;
+  paidAt: string | null;
+  refundedAt: string | null;
+  loyaltyProcessedAt: string | null;
+  loyaltySettled: boolean | null;
   createdAt: string | null;
   updatedAt: string | null;
   items: AdminOrderItem[];

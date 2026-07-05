@@ -11,7 +11,9 @@ import ProductPage from "./pages/ProductPage";
 import ShopPage from "./pages/ShopPage";
 import { useBasket } from "./hooks/useBasket";
 import BasketPage from "./pages/BasketPage";
+import CheckoutCancelPage from "./pages/CheckoutCancelPage";
 import CheckoutPage from "./pages/CheckoutPage";
+import CheckoutSuccessPage from "./pages/CheckoutSuccessPage";
 import AccountPage from "./pages/AccountPage";
 
 function App() {
@@ -27,6 +29,8 @@ function App() {
         <Route path="/products/:productId" element={<ProductPage />} />
         <Route path="/basket" element={<BasketPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/checkout/success" element={<CheckoutSuccessPage />} />
+        <Route path="/checkout/cancel" element={<CheckoutCancelPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/account" element={<AccountPage />} />

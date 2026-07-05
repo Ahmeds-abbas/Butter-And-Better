@@ -5,15 +5,14 @@ import {
   type FormEvent,
 } from "react";
 import { Link } from "react-router-dom";
-import OrderConfirmation from "../components/checkout/OrderConfirmation";
 import { useBasket } from "../hooks/useBasket";
 import {
   calculateCheckoutTotals,
   formatCurrencyFromPence,
 } from "../lib/checkoutCalculations";
+import { dataClient } from "../lib/amplifyClient";
 import {
   createCheckoutOrder,
-  type CreatedOrderSummary,
 } from "../lib/orderCreation";
 import type {
   CheckoutFormData,
@@ -148,9 +147,6 @@ function CheckoutPage() {
   const [orderMessage, setOrderMessage] = useState("");
   const [orderCreationError, setOrderCreationError] = useState("");
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
-  const [createdOrder, setCreatedOrder] = useState<CreatedOrderSummary | null>(
-    null,
-  );
   const showDeliveryAddress = deliveryAddressRequired(
     formData.fulfilmentMethod,
   );
@@ -295,9 +291,26 @@ function CheckoutPage() {
 
     try {
       const nextOrder = await createCheckoutOrder(formData, basketItems);
+      const sessionResponse = await dataClient.mutations.createCheckoutSession(
+        {
+          orderId: nextOrder.id,
+          checkoutAccessToken: nextOrder.checkoutAccessToken,
+          origin: window.location.origin,
+        },
+        {
+          authMode: nextOrder.authMode,
+        },
+      );
+
+      if (sessionResponse.errors?.length || !sessionResponse.data) {
+        throw new Error(
+          sessionResponse.errors?.map((error) => error.message).join(", ") ??
+            "Could not start Stripe Checkout.",
+        );
+      }
 
       clearBasket();
-      setCreatedOrder(nextOrder);
+      window.location.assign(sessionResponse.data.checkoutUrl);
     } catch (error) {
       console.error("Failed to create checkout order:", error);
       setOrderCreationError(
@@ -314,19 +327,6 @@ function CheckoutPage() {
     setOrderMessage("");
     setOrderCreationError("");
     setCheckoutStep("details");
-  }
-
-  if (createdOrder) {
-    return (
-      <OrderConfirmation
-        order={createdOrder}
-        fulfilmentLabel={
-          fulfilmentOptions.find(
-            (option) => option.value === createdOrder.fulfilmentMethod,
-          )?.label ?? createdOrder.fulfilmentMethod
-        }
-      />
-    );
   }
 
   if (basketItems.length === 0) {

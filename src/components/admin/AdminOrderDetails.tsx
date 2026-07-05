@@ -12,14 +12,12 @@ type AdminOrderDetailsProps = {
   order: AdminOrder;
   selectedStatus: string;
   isUpdating: boolean;
-  isUpdatingPayment: boolean;
   message?: {
     type: "success" | "error";
     text: string;
   };
   onStatusChange: (status: string) => void;
   onSaveStatus: () => void;
-  onMarkAsPaid: () => void;
   formatters: FormatterHelpers;
 };
 
@@ -27,11 +25,9 @@ function AdminOrderDetails({
   order,
   selectedStatus,
   isUpdating,
-  isUpdatingPayment,
   message,
   onStatusChange,
   onSaveStatus,
-  onMarkAsPaid,
   formatters,
 }: AdminOrderDetailsProps) {
   const fullName = `${order.firstName} ${order.lastName}`.trim();
@@ -92,23 +88,9 @@ function AdminOrderDetails({
         <section>
           <h5>Payment</h5>
           <p>Payment status: {formatters.formatStatus(order.paymentStatus)}</p>
-          {order.paymentStatus !== "paid" && (
-            <div className="admin-payment-override">
-              <p>
-                Manual payment override. Stripe webhook confirmation should
-                replace this later.
-              </p>
-
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={isUpdatingPayment}
-                onClick={onMarkAsPaid}
-              >
-                {isUpdatingPayment ? "Updating..." : "Mark as paid"}
-              </button>
-            </div>
-          )}
+          <p className="admin-payment-note">
+            Payment status is controlled by Stripe webhook events.
+          </p>
           {order.stripePaymentIntentId && (
             <p>Stripe reference: {order.stripePaymentIntentId}</p>
           )}

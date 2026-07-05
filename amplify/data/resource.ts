@@ -1,6 +1,42 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
+import { createCheckoutSession } from "../functions/create-checkout-session/resource";
+import { verifyCheckoutSession } from "../functions/verify-checkout-session/resource";
+import { stripeWebhook } from "../functions/stripe-webhook/resource";
 
 const schema = a.schema({
+  CheckoutSessionResponse: a.customType({
+    checkoutUrl: a.url().required(),
+    sessionId: a.string().required(),
+  }),
+
+  CheckoutSessionStatus: a.customType({
+    orderId: a.id(),
+    orderNumber: a.string(),
+    paymentStatus: a.string().required(),
+    fulfilmentMethod: a.string(),
+    totalInPence: a.integer(),
+  }),
+
+  createCheckoutSession: a
+    .mutation()
+    .arguments({
+      orderId: a.id().required(),
+      checkoutAccessToken: a.string().required(),
+      origin: a.string().required(),
+    })
+    .returns(a.ref("CheckoutSessionResponse"))
+    .authorization((allow) => [allow.guest(), allow.authenticated()])
+    .handler(a.handler.function(createCheckoutSession)),
+
+  verifyCheckoutSession: a
+    .query()
+    .arguments({
+      sessionId: a.string().required(),
+    })
+    .returns(a.ref("CheckoutSessionStatus"))
+    .authorization((allow) => [allow.guest(), allow.authenticated()])
+    .handler(a.handler.function(verifyCheckoutSession)),
+
   Product: a
     .model({
       name: a.string().required(),
@@ -64,7 +100,13 @@ const schema = a.schema({
       rewardDiscountInPence: a.integer().required(),
       totalInPence: a.integer().required(),
 
+      checkoutAccessToken: a.string(),
+      stripeCheckoutSessionId: a.string(),
       stripePaymentIntentId: a.string(),
+      paidAt: a.datetime(),
+      refundedAt: a.datetime(),
+      loyaltyProcessedAt: a.datetime(),
+      loyaltySettled: a.boolean(),
 
       items: a.hasMany("OrderItem", "orderId"),
     })
@@ -94,6 +136,18 @@ const schema = a.schema({
       allow.group("Admin"),
     ]),
 
+  PaymentEvent: a
+    .model({
+      eventId: a.string().required(),
+      eventType: a.string().required(),
+      orderId: a.id(),
+      processedAt: a.datetime().required(),
+    })
+    .identifier(["eventId"])
+    .authorization((allow) => [
+      allow.group("Admin").to(["read"]),
+    ]),
+
   CustomerProfile: a
     .model({
       firstName: a.string(),
@@ -108,7 +162,11 @@ const schema = a.schema({
       allow.owner(),
       allow.group("Admin"),
     ]),
-});
+}).authorization((allow) => [
+  allow.resource(createCheckoutSession).to(["query", "mutate"]),
+  allow.resource(verifyCheckoutSession).to(["query"]),
+  allow.resource(stripeWebhook).to(["query", "mutate"]),
+]);
 
 export type Schema = ClientSchema<typeof schema>;
 
