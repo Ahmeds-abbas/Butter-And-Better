@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchAuthSession } from "aws-amplify/auth";
 import ProductCard from "../components/products/ProductCard";
 import { dataClient } from "../lib/amplifyClient";
+import { getProductImageUrl } from "../lib/productImages";
 import type { Product } from "../types/product";
 
 type ProductReadAuthMode = "userPool" | "iam";
@@ -106,7 +107,7 @@ function ShopPage() {
                 id: product.id,
                 name: product.name,
                 description: product.description ?? "",
-                imageUrl: product.imageKey ?? "/src/assets/hero.png",
+                imageUrl: getProductImageUrl(product.imageKey),
                 category: product.category as Product["category"],
                 available: product.isActive,
                 variants,

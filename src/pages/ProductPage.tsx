@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { useBasket } from "../hooks/useBasket";
 import { dataClient } from "../lib/amplifyClient";
+import { getProductImageUrl } from "../lib/productImages";
 import type { Product } from "../types/product";
 
 type ProductReadAuthMode = "userPool" | "iam";
@@ -105,7 +106,7 @@ function ProductPage() {
           id: backendProduct.id,
           name: backendProduct.name,
           description: backendProduct.description ?? "",
-          imageUrl: backendProduct.imageKey ?? "/src/assets/hero.png",
+          imageUrl: getProductImageUrl(backendProduct.imageKey),
           category: backendProduct.category as Product["category"],
           available: backendProduct.isActive,
           variants: variantResponse.data

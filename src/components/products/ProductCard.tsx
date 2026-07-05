@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { getProductImageUrl } from "../../lib/productImages";
 import type { Product } from "../../types/product";
 
 type ProductCardProps = {
@@ -13,7 +14,7 @@ function ProductCard({ product }: ProductCardProps) {
   return (
     <article className="product-card">
       <img
-        src={product.imageUrl}
+        src={getProductImageUrl(product.imageUrl)}
         alt={product.name}
         className="product-card-image"
       />

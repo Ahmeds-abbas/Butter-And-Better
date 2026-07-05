@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { dataClient } from "../lib/amplifyClient";
 
 type AdminVariant = {
@@ -199,6 +199,16 @@ function AdminPage() {
   const [createMessage, setCreateMessage] = useState<ProductMessage | null>(
     null,
   );
+  const [pendingDeleteProduct, setPendingDeleteProduct] =
+    useState<AdminProduct | null>(null);
+  const [deleteConfirmationValue, setDeleteConfirmationValue] = useState("");
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(
+    null,
+  );
+  const [deleteError, setDeleteError] = useState("");
+  const [retryProductDeleteOnly, setRetryProductDeleteOnly] = useState(false);
+  const [deleteSuccessMessage, setDeleteSuccessMessage] = useState("");
+  const deleteConfirmationInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadProducts = useCallback(async () => {
     setIsLoading(true);
@@ -275,6 +285,33 @@ function AdminPage() {
     void Promise.resolve().then(loadProducts);
   }, [loadProducts]);
 
+  useEffect(() => {
+    if (pendingDeleteProduct) {
+      deleteConfirmationInputRef.current?.focus();
+    }
+  }, [pendingDeleteProduct]);
+
+  useEffect(() => {
+    if (!pendingDeleteProduct || deletingProductId) {
+      return;
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setPendingDeleteProduct(null);
+        setDeleteConfirmationValue("");
+        setDeleteError("");
+        setRetryProductDeleteOnly(false);
+      }
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [deletingProductId, pendingDeleteProduct]);
+
   const catalogueStats = useMemo(() => {
     const activeProducts = products.filter((product) => product.isActive);
     const totalVariants = products.reduce(
@@ -348,6 +385,12 @@ function AdminPage() {
   }
 
   function startEditingProduct(product: AdminProduct) {
+    setIsCreatePanelOpen(false);
+    setPendingDeleteProduct(null);
+    setDeleteConfirmationValue("");
+    setDeleteError("");
+    setRetryProductDeleteOnly(false);
+    setDeleteSuccessMessage("");
     setEditingProductId(product.id);
     setProductDraft(createDraftFromProduct(product));
     setValidationMessages([]);
@@ -366,6 +409,11 @@ function AdminPage() {
     setEditingProductId(null);
     setProductDraft(null);
     setValidationMessages([]);
+    setPendingDeleteProduct(null);
+    setDeleteConfirmationValue("");
+    setDeleteError("");
+    setRetryProductDeleteOnly(false);
+    setDeleteSuccessMessage("");
     setIsCreatePanelOpen(true);
     setCreateMessage(null);
     setCreateValidationMessages({});
@@ -376,6 +424,30 @@ function AdminPage() {
     setNewProductDraft(createBlankProductDraft());
     setCreateValidationMessages({});
     setCreateMessage(null);
+  }
+
+  function openDeleteConfirmation(product: AdminProduct) {
+    setEditingProductId(null);
+    setProductDraft(null);
+    setValidationMessages([]);
+    setIsCreatePanelOpen(false);
+    setCreateValidationMessages({});
+    setCreateMessage(null);
+    setPendingDeleteProduct(product);
+    setDeleteConfirmationValue("");
+    setDeleteError("");
+    setRetryProductDeleteOnly(false);
+    setDeleteSuccessMessage("");
+    setProductMessages((currentMessages) =>
+      removeProductMessage(currentMessages, product.id),
+    );
+  }
+
+  function cancelDeleteConfirmation() {
+    setPendingDeleteProduct(null);
+    setDeleteConfirmationValue("");
+    setDeleteError("");
+    setRetryProductDeleteOnly(false);
   }
 
   function updateProductDraft(
@@ -730,6 +802,98 @@ function AdminPage() {
     }
   }
 
+  async function deleteProductPermanently(product: AdminProduct) {
+    const deleteVariantsFirst = !retryProductDeleteOnly;
+
+    setDeletingProductId(product.id);
+    setDeleteError("");
+    setDeleteSuccessMessage("");
+
+    try {
+      if (deleteVariantsFirst) {
+        for (const variant of product.variants) {
+          const deleteVariantInput = {
+            id: variant.id,
+          } as unknown as ProductVariantDeleteInput;
+
+          const variantResponse = await dataClient.models.ProductVariant.delete(
+            deleteVariantInput,
+            {
+              authMode: "userPool",
+            },
+          );
+
+          if (variantResponse.errors?.length) {
+            throw new Error(
+              variantResponse.errors
+                .map((error) => error.message)
+                .join(", "),
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to delete variants for ${product.name}:`, error);
+      setDeleteError(
+        `Could not delete every variant for ${product.name}. The product was not deleted, and the catalogue is unchanged.`,
+      );
+      setDeletingProductId(null);
+      return;
+    }
+
+    try {
+      const deleteProductInput = {
+        id: product.id,
+      } as unknown as ProductDeleteInput;
+
+      const productResponse = await dataClient.models.Product.delete(
+        deleteProductInput,
+        {
+          authMode: "userPool",
+        },
+      );
+
+      if (productResponse.errors?.length) {
+        throw new Error(
+          productResponse.errors.map((error) => error.message).join(", "),
+        );
+      }
+
+      setProducts((currentProducts) =>
+        currentProducts.filter(
+          (currentProduct) => currentProduct.id !== product.id,
+        ),
+      );
+      setDeleteSuccessMessage(`${product.name} was permanently deleted.`);
+      setPendingDeleteProduct(null);
+      setDeleteConfirmationValue("");
+      setDeleteError("");
+      setRetryProductDeleteOnly(false);
+    } catch (error) {
+      console.error(`Failed to delete product ${product.name}:`, error);
+
+      const productWithoutVariants = {
+        ...product,
+        variants: [],
+      };
+
+      setProducts((currentProducts) =>
+        currentProducts.map((currentProduct) =>
+          currentProduct.id === product.id
+            ? productWithoutVariants
+            : currentProduct,
+        ),
+      );
+      setPendingDeleteProduct(productWithoutVariants);
+      setRetryProductDeleteOnly(true);
+      setDeleteError(
+        `The variants were deleted, but ${product.name} could not be deleted. Retry the product delete; the product is still shown so you do not lose track of it.`,
+      );
+    } finally {
+      setDeletingProductId(null);
+    }
+  }
+
   async function createProduct() {
     const messages = validateNewProductDraft(newProductDraft);
 
@@ -935,6 +1099,12 @@ function AdminPage() {
           >
             ×
           </button>
+        </div>
+      )}
+
+      {!isLoading && !loadError && deleteSuccessMessage && (
+        <div className="admin-product-message admin-product-message-success">
+          {deleteSuccessMessage}
         </div>
       )}
 
@@ -1324,7 +1494,10 @@ function AdminPage() {
                   <button
                     type="button"
                     className="secondary-button"
-                    disabled={savingProductId === product.id}
+                    disabled={
+                      savingProductId === product.id ||
+                      deletingProductId === product.id
+                    }
                     onClick={() => startEditingProduct(product)}
                   >
                     Edit product
@@ -1337,7 +1510,10 @@ function AdminPage() {
                         ? "secondary-button"
                         : "primary-button"
                     }
-                    disabled={updatingProductId === product.id}
+                    disabled={
+                      updatingProductId === product.id ||
+                      deletingProductId === product.id
+                    }
                     onClick={() => void toggleProductAvailability(product)}
                   >
                     {updatingProductId === product.id
@@ -1347,6 +1523,102 @@ function AdminPage() {
                         : "Enable product"}
                   </button>
                 </div>
+
+                <div className="admin-danger-zone">
+                  <button
+                    type="button"
+                    className="destructive-button"
+                    disabled={
+                      editingProductId === product.id ||
+                      isCreatingProduct ||
+                      savingProductId === product.id ||
+                      updatingProductId === product.id ||
+                      deletingProductId === product.id
+                    }
+                    onClick={() => openDeleteConfirmation(product)}
+                  >
+                    Delete product
+                  </button>
+                </div>
+
+                {pendingDeleteProduct?.id === product.id && (
+                  <section
+                    className="admin-delete-panel"
+                    role="dialog"
+                    aria-labelledby={`delete-product-${product.id}`}
+                  >
+                    <div className="admin-delete-heading">
+                      <div>
+                        <p className="eyebrow">Permanent delete</p>
+                        <h4 id={`delete-product-${product.id}`}>
+                          Delete {pendingDeleteProduct.name}
+                        </h4>
+                      </div>
+
+                      {deletingProductId === product.id && (
+                        <span>Deleting...</span>
+                      )}
+                    </div>
+
+                    <p className="admin-delete-warning">
+                      This permanently deletes the product and its{" "}
+                      {pendingDeleteProduct.variants.length} variant
+                      {pendingDeleteProduct.variants.length === 1 ? "" : "s"}.
+                      This cannot be undone.
+                    </p>
+
+                    {deleteError && (
+                      <div className="validation-summary" role="alert">
+                        <p>{deleteError}</p>
+                      </div>
+                    )}
+
+                    <label className="admin-delete-confirmation">
+                      <span>
+                        Type "{pendingDeleteProduct.name}" to confirm
+                      </span>
+                      <input
+                        ref={deleteConfirmationInputRef}
+                        type="text"
+                        value={deleteConfirmationValue}
+                        disabled={deletingProductId === product.id}
+                        onChange={(event) =>
+                          setDeleteConfirmationValue(event.target.value)
+                        }
+                      />
+                    </label>
+
+                    <div className="admin-delete-actions">
+                      <button
+                        type="button"
+                        className="destructive-button"
+                        disabled={
+                          deletingProductId === product.id ||
+                          deleteConfirmationValue.trim() !==
+                            pendingDeleteProduct.name
+                        }
+                        onClick={() =>
+                          void deleteProductPermanently(pendingDeleteProduct)
+                        }
+                      >
+                        {deletingProductId === product.id
+                          ? "Deleting..."
+                          : retryProductDeleteOnly
+                            ? "Retry product delete"
+                            : "Permanently delete"}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        disabled={deletingProductId === product.id}
+                        onClick={cancelDeleteConfirmation}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </section>
+                )}
 
                 {editingProductId === product.id && productDraft && (
                   <form

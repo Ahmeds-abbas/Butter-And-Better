@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useBasket } from "../hooks/useBasket";
+import { getProductImageUrl } from "../lib/productImages";
 
 function BasketPage() {
   const {
@@ -48,7 +49,7 @@ function BasketPage() {
           {basketItems.map((item) => (
             <article key={item.id} className="basket-item">
               <img
-                src={item.imageUrl}
+                src={getProductImageUrl(item.imageUrl)}
                 alt={item.productName}
                 className="basket-item-image"
               />
