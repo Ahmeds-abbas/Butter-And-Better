@@ -28,9 +28,8 @@ export type CreatedOrderSummary = {
 };
 
 const fulfilmentLabels: Record<FulfilmentMethod, string> = {
-  nationwide: "Nationwide delivery",
-  manchester: "Manchester same-day",
-  collection: "Collection",
+  nationwide: "UK tracked delivery",
+  collection: "Pickup",
 };
 
 function createId() {
@@ -95,14 +94,12 @@ async function verifyBasketEligibility(
     }
 
     const product = productResponse.data;
-    const methodAllowed =
-      fulfilmentMethod === "nationwide"
-        ? product.nationwideDelivery
-        : fulfilmentMethod === "manchester"
-          ? product.manchesterDelivery
-          : product.collectionAvailable;
 
-    if (!product.isActive || !methodAllowed) {
+    if (!product.isActive) {
+      throw new Error(`${basketItem.productName} is no longer available.`);
+    }
+
+    if (fulfilmentMethod === "nationwide" && !product.nationwideDelivery) {
       throw new Error(
         `${basketItem.productName} is not eligible for ${fulfilmentLabels[fulfilmentMethod]}.`,
       );

@@ -1,6 +1,5 @@
 export type FulfilmentMethod =
   | "nationwide"
-  | "manchester"
   | "collection";
 
 export type CheckoutFormData = {

@@ -17,7 +17,6 @@ export type CheckoutTotals = {
 
 export const deliveryFeesInPence: Record<FulfilmentMethod, number> = {
   nationwide: 299,
-  manchester: 250,
   collection: 0,
 };
 

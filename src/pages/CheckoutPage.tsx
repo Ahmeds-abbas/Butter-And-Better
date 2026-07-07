@@ -1,10 +1,12 @@
 import {
+  useEffect,
   useMemo,
   useState,
   type ChangeEvent,
   type FormEvent,
 } from "react";
 import { Link } from "react-router-dom";
+import { fetchAuthSession } from "aws-amplify/auth";
 import { useBasket } from "../hooks/useBasket";
 import {
   calculateCheckoutTotals,
@@ -40,18 +42,13 @@ const fulfilmentOptions: Array<{
 }> = [
   {
     value: "nationwide",
-    label: "Nationwide delivery",
-    description: "For postal-friendly bakes across the UK.",
-  },
-  {
-    value: "manchester",
-    label: "Manchester delivery",
-    description: "Local delivery around Manchester.",
+    label: "UK tracked delivery",
+    description: "Tracked delivery across the UK for eligible bakes. GBP 2.99.",
   },
   {
     value: "collection",
-    label: "Collection",
-    description: "Collect your order from Butter & Better.",
+    label: "Pickup",
+    description: "Collect your order from Butter & Better for free.",
   },
 ];
 
@@ -59,6 +56,49 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ukPostcodePattern = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
 
 type CheckoutFieldName = keyof CheckoutFormData;
+type ProductReadAuthMode = "userPool" | "iam";
+
+async function getProductReadAuthModes(): Promise<ProductReadAuthMode[]> {
+  try {
+    const session = await fetchAuthSession();
+
+    if (session.tokens?.accessToken) {
+      return ["userPool", "iam"];
+    }
+  } catch {
+    // Guest checkout reads product delivery flags through the identity pool.
+  }
+
+  return ["iam", "userPool"];
+}
+
+async function getProductWithFallback(productId: string) {
+  const authModes = await getProductReadAuthModes();
+  let lastError: unknown;
+
+  for (const authMode of authModes) {
+    try {
+      const response = await dataClient.models.Product.get(
+        { id: productId },
+        { authMode },
+      );
+
+      if (response.errors?.length && !response.data) {
+        throw new Error(
+          response.errors.map((error) => error.message).join(", "),
+        );
+      }
+
+      return response.data;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Could not load product.");
+}
 
 function getFieldErrorId(fieldName: string) {
   return `${fieldName}-error`;
@@ -67,14 +107,12 @@ function getFieldErrorId(fieldName: string) {
 function deliveryAddressRequired(
   fulfilmentMethod: CheckoutFormData["fulfilmentMethod"],
 ) {
-  return (
-    fulfilmentMethod === "nationwide" ||
-    fulfilmentMethod === "manchester"
-  );
+  return fulfilmentMethod === "nationwide";
 }
 
 function validateCheckoutForm(
   formData: CheckoutFormData,
+  ukDeliveryAvailable: boolean,
 ): CheckoutValidationErrors {
   const errors: CheckoutValidationErrors = {};
   const trimmedFormData = {
@@ -114,6 +152,12 @@ function validateCheckoutForm(
 
   if (!trimmedFormData.fulfilmentMethod) {
     errors.fulfilmentMethod = "Choose a fulfilment method.";
+  } else if (
+    trimmedFormData.fulfilmentMethod === "nationwide" &&
+    !ukDeliveryAvailable
+  ) {
+    errors.fulfilmentMethod =
+      "UK tracked delivery is unavailable for this basket. Please choose pickup.";
   }
 
   if (requiresAddress) {
@@ -147,11 +191,34 @@ function CheckoutPage() {
   const [orderMessage, setOrderMessage] = useState("");
   const [orderCreationError, setOrderCreationError] = useState("");
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [isCheckingDeliveryAvailability, setIsCheckingDeliveryAvailability] =
+    useState(true);
+  const [deliveryAvailabilityError, setDeliveryAvailabilityError] =
+    useState("");
+  const [
+    deliveryUnavailableProductNames,
+    setDeliveryUnavailableProductNames,
+  ] = useState<string[]>([]);
+  const ukDeliveryAvailable =
+    !isCheckingDeliveryAvailability &&
+    !deliveryAvailabilityError &&
+    deliveryUnavailableProductNames.length === 0;
+  const effectiveFulfilmentMethod =
+    formData.fulfilmentMethod === "nationwide" && !ukDeliveryAvailable
+      ? ""
+      : formData.fulfilmentMethod;
   const showDeliveryAddress = deliveryAddressRequired(
-    formData.fulfilmentMethod,
+    effectiveFulfilmentMethod,
   );
-  const selectedFulfilmentOption = fulfilmentOptions.find(
-    (option) => option.value === formData.fulfilmentMethod,
+  const availableFulfilmentOptions = useMemo(
+    () =>
+      fulfilmentOptions.filter(
+        (option) => option.value === "collection" || ukDeliveryAvailable,
+      ),
+    [ukDeliveryAvailable],
+  );
+  const selectedFulfilmentOption = availableFulfilmentOptions.find(
+    (option) => option.value === effectiveFulfilmentMethod,
   );
   const basketSubtotalInPence = useMemo(
     () =>
@@ -163,16 +230,75 @@ function CheckoutPage() {
     [basketItems],
   );
   const checkoutTotals = useMemo(() => {
-    if (!formData.fulfilmentMethod) {
+    if (!effectiveFulfilmentMethod) {
       return null;
     }
 
     try {
-      return calculateCheckoutTotals(basketItems, formData.fulfilmentMethod);
+      return calculateCheckoutTotals(basketItems, effectiveFulfilmentMethod);
     } catch {
       return null;
     }
-  }, [basketItems, formData.fulfilmentMethod]);
+  }, [basketItems, effectiveFulfilmentMethod]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function checkDeliveryAvailability() {
+      setIsCheckingDeliveryAvailability(true);
+      setDeliveryAvailabilityError("");
+
+      try {
+        const productNamesById = new Map(
+          basketItems.map((item) => [item.productId, item.productName]),
+        );
+        const unavailableProductNames: string[] = [];
+
+        await Promise.all(
+          [...productNamesById.keys()].map(async (productId) => {
+            const product = await getProductWithFallback(productId);
+
+            if (!product?.nationwideDelivery) {
+              unavailableProductNames.push(
+                productNamesById.get(productId) ?? "A basket item",
+              );
+            }
+          }),
+        );
+
+        if (!isCancelled) {
+          setDeliveryUnavailableProductNames(
+            [...new Set(unavailableProductNames)].sort(),
+          );
+        }
+      } catch (error) {
+        console.error("Failed to check delivery availability:", error);
+
+        if (!isCancelled) {
+          setDeliveryAvailabilityError(
+            "We could not confirm UK tracked delivery for this basket. Pickup is still available.",
+          );
+          setDeliveryUnavailableProductNames([]);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsCheckingDeliveryAvailability(false);
+        }
+      }
+    }
+
+    if (basketItems.length === 0) {
+      return () => {
+        isCancelled = true;
+      };
+    }
+
+    void checkDeliveryAvailability();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [basketItems]);
 
   function clearFieldError(fieldName: CheckoutFieldName) {
     setErrors((currentErrors) => {
@@ -224,7 +350,10 @@ function CheckoutPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const validationErrors = validateCheckoutForm(formData);
+    const validationErrors = validateCheckoutForm(
+      formData,
+      ukDeliveryAvailable,
+    );
     const firstInvalidField = Object.keys(
       validationErrors,
     )[0] as keyof CheckoutValidationErrors | undefined;
@@ -256,7 +385,10 @@ function CheckoutPage() {
       return;
     }
 
-    const validationErrors = validateCheckoutForm(formData);
+    const validationErrors = validateCheckoutForm(
+      formData,
+      ukDeliveryAvailable,
+    );
 
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -506,7 +638,7 @@ function CheckoutPage() {
                 <fieldset className="fulfilment-options">
                   <legend>Choose an option</legend>
 
-                  {fulfilmentOptions.map((option) => (
+                  {availableFulfilmentOptions.map((option) => (
                     <label
                       key={option.value}
                       className={`fulfilment-option ${
@@ -536,6 +668,30 @@ function CheckoutPage() {
                       </span>
                     </label>
                   ))}
+
+                  {isCheckingDeliveryAvailability && (
+                    <p className="checkout-review-copy" aria-live="polite">
+                      Checking whether this basket can use UK tracked delivery.
+                    </p>
+                  )}
+
+                  {!isCheckingDeliveryAvailability &&
+                    deliveryAvailabilityError && (
+                      <p className="form-error" role="alert">
+                        {deliveryAvailabilityError}
+                      </p>
+                    )}
+
+                  {!isCheckingDeliveryAvailability &&
+                    !deliveryAvailabilityError &&
+                    deliveryUnavailableProductNames.length > 0 && (
+                      <p className="form-error" role="alert">
+                        UK tracked delivery is unavailable because this basket
+                        includes{" "}
+                        {deliveryUnavailableProductNames.join(", ")}. Please
+                        choose pickup for this order.
+                      </p>
+                    )}
 
                   {errors.fulfilmentMethod && (
                     <p
@@ -855,7 +1011,11 @@ function CheckoutPage() {
             <span>
               {checkoutTotals
                 ? formatCurrencyFromPence(checkoutTotals.deliveryFeeInPence)
-                : "Choose fulfilment"}
+                : isCheckingDeliveryAvailability
+                  ? "Checking delivery"
+                  : ukDeliveryAvailable
+                    ? "Choose pickup or delivery"
+                    : "Pickup available"}
             </span>
           </div>
 
