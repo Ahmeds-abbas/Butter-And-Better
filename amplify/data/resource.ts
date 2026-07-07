@@ -34,7 +34,11 @@ const schema = a.schema({
       sessionId: a.string().required(),
     })
     .returns(a.ref("CheckoutSessionStatus"))
-    .authorization((allow) => [allow.guest(), allow.authenticated()])
+    .authorization((allow) => [
+      allow.publicApiKey(),
+      allow.guest(),
+      allow.authenticated(),
+    ])
     .handler(a.handler.function(verifyCheckoutSession)),
 
   Product: a
@@ -174,5 +178,8 @@ export const data = defineData({
   schema,
   authorizationModes: {
     defaultAuthorizationMode: "identityPool",
+    apiKeyAuthorizationMode: {
+      expiresInDays: 30,
+    },
   },
 });

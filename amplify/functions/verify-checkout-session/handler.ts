@@ -18,21 +18,26 @@ export const handler: Schema["verifyCheckoutSession"]["functionHandler"] =
   async (event) => {
     const { sessionId } = event.arguments;
     const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const orderId = session.metadata?.orderId;
 
-    const orderResponse = await client.models.Order.list({
-      filter: {
-        stripeCheckoutSessionId: {
-          eq: session.id,
-        },
-      },
-      limit: 1,
-    });
+    if (!orderId) {
+      throw new Error("Checkout Session is missing order metadata.");
+    }
 
-    if (orderResponse.errors?.length || orderResponse.data.length === 0) {
+    const orderResponse = await client.models.Order.get({ id: orderId });
+
+    if (orderResponse.errors?.length || !orderResponse.data) {
       throw new Error("Order was not found for this Checkout Session.");
     }
 
-    const order = orderResponse.data[0];
+    const order = orderResponse.data;
+
+    if (
+      order.stripeCheckoutSessionId &&
+      order.stripeCheckoutSessionId !== session.id
+    ) {
+      throw new Error("Checkout Session does not match this order.");
+    }
 
     if (
       session.currency !== "gbp" ||

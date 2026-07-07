@@ -38,7 +38,7 @@ function CheckoutSuccessPage() {
       try {
         const response = await dataClient.queries.verifyCheckoutSession(
           { sessionId },
-          { authMode: "iam" },
+          { authMode: "apiKey" },
         );
 
         if (response.errors?.length || !response.data) {
