@@ -21,6 +21,7 @@ export type AdminOrder = {
   customerPhone: string;
   firstName: string;
   lastName: string;
+  customerProfileId: string | null;
   fulfilmentMethod: string;
   addressLine1: string | null;
   addressLine2: string | null;
@@ -40,6 +41,8 @@ export type AdminOrder = {
   refundedAt: string | null;
   loyaltyProcessedAt: string | null;
   loyaltySettled: boolean | null;
+  customerOrderConfirmationEmailSentAt: string | null;
+  adminOrderNotificationEmailSentAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
   items: AdminOrderItem[];

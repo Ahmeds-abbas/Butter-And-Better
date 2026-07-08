@@ -110,6 +110,10 @@ function AdminOrderDetails({
               </dd>
             </div>
             <div>
+              <dt>Loyalty settled</dt>
+              <dd>{order.loyaltySettled ? "Yes" : "No"}</dd>
+            </div>
+            <div>
               <dt>Total</dt>
               <dd>{formatters.formatCurrency(order.totalInPence)}</dd>
             </div>
@@ -172,8 +176,23 @@ function AdminOrderDetails({
         <p>Order ID: {order.id}</p>
         <p>Created: {formatters.formatDateTime(order.createdAt)}</p>
         <p>Updated: {formatters.formatDateTime(order.updatedAt)}</p>
+        <p>
+          Customer profile: {order.customerProfileId ?? "Guest checkout"}
+        </p>
         <p>Loyalty spend: {formatters.formatCurrency(order.loyaltySpendInPence)}</p>
         <p>Stamps earned: {order.stampsEarned}</p>
+        <p>Loyalty settled: {order.loyaltySettled ? "Yes" : "No"}</p>
+        <p>
+          Loyalty processed: {formatters.formatDateTime(order.loyaltyProcessedAt)}
+        </p>
+        <p>
+          Customer email sent:{" "}
+          {formatters.formatDateTime(order.customerOrderConfirmationEmailSentAt)}
+        </p>
+        <p>
+          Admin email sent:{" "}
+          {formatters.formatDateTime(order.adminOrderNotificationEmailSentAt)}
+        </p>
       </section>
     </section>
   );

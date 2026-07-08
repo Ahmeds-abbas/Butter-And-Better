@@ -1770,6 +1770,103 @@
   margin: 0.25rem 0;
 }
 
+.account-dashboard,
+.loyalty-card,
+.checkout-loyalty-summary {
+  display: grid;
+  gap: 1rem;
+}
+
+.loyalty-card {
+  padding: 1.25rem;
+  border: 1px solid rgba(87, 54, 21, 0.12);
+  border-radius: 0.9rem;
+  background: #f2f0ec;
+}
+
+.loyalty-card-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.loyalty-card-heading strong {
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  background: #738561;
+  color: #ffffff;
+}
+
+.loyalty-stamp-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.loyalty-stamp {
+  --stamp-progress: 0%;
+  position: relative;
+  display: grid;
+  min-height: 4.5rem;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid #738561;
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(115, 133, 97, 0.28) var(--stamp-progress),
+      transparent var(--stamp-progress)
+    ),
+    #ffffff;
+  color: #573615;
+  font-weight: 900;
+}
+
+.loyalty-stamp-filled {
+  background: #738561;
+  color: #ffffff;
+}
+
+.loyalty-summary {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.loyalty-summary div,
+.checkout-loyalty-summary {
+  padding: 0.85rem;
+  border-radius: 0.75rem;
+  background: #ffffff;
+}
+
+.loyalty-summary dt {
+  color: #786f67;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.loyalty-summary dd {
+  margin: 0.2rem 0 0;
+  color: #573615;
+  font-weight: 900;
+}
+
+.checkout-loyalty-summary {
+  border: 1px solid rgba(115, 133, 97, 0.18);
+}
+
+.checkout-loyalty-summary h3,
+.checkout-loyalty-summary p {
+  margin: 0;
+}
+
+.checkout-loyalty-summary p + p {
+  margin-top: 0.5rem;
+}
+
 @media (max-width: 900px) {
   .admin-stats,
   .admin-product-grid,

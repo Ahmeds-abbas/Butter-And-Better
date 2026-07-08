@@ -88,6 +88,7 @@ function createOrderUpdateInput(
     customerPhone: order.customerPhone,
     firstName: order.firstName,
     lastName: order.lastName,
+    customerProfileId: order.customerProfileId,
     fulfilmentMethod: order.fulfilmentMethod,
     addressLine1: order.addressLine1,
     addressLine2: order.addressLine2,
@@ -107,6 +108,9 @@ function createOrderUpdateInput(
     refundedAt: order.refundedAt,
     loyaltyProcessedAt: order.loyaltyProcessedAt,
     loyaltySettled: order.loyaltySettled,
+    customerOrderConfirmationEmailSentAt:
+      order.customerOrderConfirmationEmailSentAt,
+    adminOrderNotificationEmailSentAt: order.adminOrderNotificationEmailSentAt,
   } as unknown as OrderUpdateInput;
 }
 
@@ -156,6 +160,7 @@ async function mapOrder(order: OrderRecord): Promise<AdminOrder> {
     customerPhone: order.customerPhone,
     firstName: order.firstName,
     lastName: order.lastName,
+    customerProfileId: order.customerProfileId ?? null,
     fulfilmentMethod: order.fulfilmentMethod,
     addressLine1: order.addressLine1 ?? null,
     addressLine2: order.addressLine2 ?? null,
@@ -175,6 +180,10 @@ async function mapOrder(order: OrderRecord): Promise<AdminOrder> {
     refundedAt: order.refundedAt ?? null,
     loyaltyProcessedAt: order.loyaltyProcessedAt ?? null,
     loyaltySettled: order.loyaltySettled ?? null,
+    customerOrderConfirmationEmailSentAt:
+      order.customerOrderConfirmationEmailSentAt ?? null,
+    adminOrderNotificationEmailSentAt:
+      order.adminOrderNotificationEmailSentAt ?? null,
     createdAt: order.createdAt ?? null,
     updatedAt: order.updatedAt ?? null,
     items,

@@ -52,5 +52,8 @@ export const handler: Schema["verifyCheckoutSession"]["functionHandler"] =
       paymentStatus: order.paymentStatus,
       fulfilmentMethod: order.fulfilmentMethod,
       totalInPence: order.totalInPence,
+      customerProfileId: order.customerProfileId,
+      loyaltySettled: order.loyaltySettled,
+      stampsEarned: order.stampsEarned,
     };
   };

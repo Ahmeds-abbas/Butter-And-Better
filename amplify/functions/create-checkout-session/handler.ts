@@ -31,6 +31,7 @@ function createOrderUpdateInput(
     customerPhone: order.customerPhone,
     firstName: order.firstName,
     lastName: order.lastName,
+    customerProfileId: order.customerProfileId,
     fulfilmentMethod: order.fulfilmentMethod,
     addressLine1: order.addressLine1,
     addressLine2: order.addressLine2,
@@ -52,6 +53,12 @@ function createOrderUpdateInput(
     refundedAt: changes.refundedAt ?? order.refundedAt,
     loyaltyProcessedAt: changes.loyaltyProcessedAt ?? order.loyaltyProcessedAt,
     loyaltySettled: changes.loyaltySettled ?? order.loyaltySettled,
+    customerOrderConfirmationEmailSentAt:
+      changes.customerOrderConfirmationEmailSentAt ??
+      order.customerOrderConfirmationEmailSentAt,
+    adminOrderNotificationEmailSentAt:
+      changes.adminOrderNotificationEmailSentAt ??
+      order.adminOrderNotificationEmailSentAt,
   } as unknown as OrderUpdateInput;
 }
 

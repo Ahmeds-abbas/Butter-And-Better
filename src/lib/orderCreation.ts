@@ -8,6 +8,9 @@ type OrderCreateInput = Parameters<typeof dataClient.models.Order.create>[0];
 type OrderItemCreateInput = Parameters<
   typeof dataClient.models.OrderItem.create
 >[0];
+type CustomerProfileCreateInput = Parameters<
+  typeof dataClient.models.CustomerProfile.create
+>[0];
 type OrderDeleteInput = Parameters<typeof dataClient.models.Order.delete>[0];
 type OrderItemDeleteInput = Parameters<
   typeof dataClient.models.OrderItem.delete
@@ -76,6 +79,52 @@ async function getOrderAuthMode(): Promise<OrderAuthMode> {
   }
 
   return "iam";
+}
+
+async function getSignedInCustomerProfileId(authMode: OrderAuthMode) {
+  if (authMode !== "userPool") {
+    return null;
+  }
+
+  const session = await fetchAuthSession();
+  const userSub = session.tokens?.idToken?.payload.sub;
+
+  if (typeof userSub !== "string" || !userSub) {
+    return null;
+  }
+
+  const existingProfile = await dataClient.models.CustomerProfile.get(
+    { id: userSub },
+    { authMode: "userPool" },
+  );
+
+  if (existingProfile.data) {
+    return userSub;
+  }
+
+  if (existingProfile.errors?.length) {
+    console.warn(
+      "Could not read customer loyalty profile before checkout:",
+      existingProfile.errors,
+    );
+  }
+
+  const profileInput = {
+    id: userSub,
+    loyaltyStamps: 0,
+    loyaltyRemainderInPence: 0,
+    availableRewards: 0,
+  } as unknown as CustomerProfileCreateInput;
+  const createProfile = await dataClient.models.CustomerProfile.create(
+    profileInput,
+    { authMode: "userPool" },
+  );
+
+  if (createProfile.errors?.length || !createProfile.data) {
+    throw new Error("Could not prepare your loyalty profile for checkout.");
+  }
+
+  return userSub;
 }
 
 async function verifyBasketEligibility(
@@ -160,6 +209,7 @@ export async function createCheckoutOrder(
   }
 
   const authMode = await getOrderAuthMode();
+  const customerProfileId = await getSignedInCustomerProfileId(authMode);
   const fulfilmentMethod = formData.fulfilmentMethod;
   const totals = calculateCheckoutTotals(basketItems, fulfilmentMethod);
 
@@ -183,6 +233,7 @@ export async function createCheckoutOrder(
     customerPhone: normalizePhoneNumber(formData.phone),
     firstName: formData.firstName.trim(),
     lastName: formData.lastName.trim(),
+    customerProfileId,
     fulfilmentMethod,
     addressLine1:
       fulfilmentMethod === "collection" ? null : formData.addressLine1.trim(),
@@ -207,6 +258,8 @@ export async function createCheckoutOrder(
     refundedAt: null,
     loyaltyProcessedAt: null,
     loyaltySettled: false,
+    customerOrderConfirmationEmailSentAt: null,
+    adminOrderNotificationEmailSentAt: null,
   } as unknown as OrderCreateInput;
 
   const orderResponse = await dataClient.models.Order.create(orderInput, {

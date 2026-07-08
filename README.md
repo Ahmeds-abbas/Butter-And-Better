@@ -87,6 +87,9 @@ For sandbox development:
 ```powershell
 npx.cmd ampx sandbox secret set STRIPE_SECRET_KEY --profile butter-and-better
 npx.cmd ampx sandbox secret set STRIPE_WEBHOOK_SECRET --profile butter-and-better
+npx.cmd ampx sandbox secret set EMAIL_API_KEY --profile butter-and-better
+npx.cmd ampx sandbox secret set EMAIL_FROM_ADDRESS --profile butter-and-better
+npx.cmd ampx sandbox secret set ADMIN_NOTIFICATION_EMAIL --profile butter-and-better
 ```
 
 For a deployed Amplify branch, configure the same secret names for that branch in Amplify before deploying:
@@ -129,4 +132,7 @@ Payment notes:
 - The backend reloads the stored order and items, verifies totals, creates the Checkout Session, and stores the session ID.
 - Only the Stripe webhook marks an order `paid`.
 - The success page verifies the Checkout Session but does not mark payment as paid.
-- Loyalty settlement is intentionally deferred until a safe customer-profile link exists for webhook processing.
+- Loyalty settlement runs only from the Stripe webhook after a verified paid payment.
+- Order notification emails are sent only after the Stripe webhook verifies a successful paid payment.
+- Email sending uses Amplify secrets and is skipped/retried separately from payment state if delivery fails.
+- Loyalty reversal on refunds is deferred and must be handled manually/admin-side until implemented.

@@ -9,6 +9,9 @@ type CheckoutSessionStatus = {
   paymentStatus?: string | null;
   fulfilmentMethod?: string | null;
   totalInPence?: number | null;
+  customerProfileId?: string | null;
+  loyaltySettled?: boolean | null;
+  stampsEarned?: number | null;
 };
 
 const fulfilmentLabels: Record<string, string> = {
@@ -125,6 +128,21 @@ function CheckoutSuccessPage() {
                   {typeof sessionStatus.totalInPence === "number"
                     ? formatCurrencyFromPence(sessionStatus.totalInPence)
                     : "Not available"}
+                </dd>
+              </div>
+
+              <div>
+                <dt>Loyalty</dt>
+                <dd>
+                  {sessionStatus.paymentStatus !== "paid"
+                    ? "Loyalty will update after payment confirmation."
+                    : !sessionStatus.customerProfileId
+                      ? "Guest orders do not earn loyalty stamps."
+                    : sessionStatus.loyaltySettled
+                      ? `${sessionStatus.stampsEarned ?? 0} stamp${
+                          sessionStatus.stampsEarned === 1 ? "" : "s"
+                        } earned`
+                      : "Loyalty is still being settled."}
                 </dd>
               </div>
             </dl>

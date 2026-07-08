@@ -16,6 +16,12 @@ import { dataClient } from "../lib/amplifyClient";
 import {
   createCheckoutOrder,
 } from "../lib/orderCreation";
+import {
+  calculateLoyaltySettlement,
+  formatLoyaltyCurrency,
+  stampSpendInPence,
+  stampsPerReward,
+} from "../lib/loyalty";
 import type {
   CheckoutFormData,
   CheckoutValidationErrors,
@@ -57,6 +63,14 @@ const ukPostcodePattern = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
 
 type CheckoutFieldName = keyof CheckoutFormData;
 type ProductReadAuthMode = "userPool" | "iam";
+type CustomerProfileCreateInput = Parameters<
+  typeof dataClient.models.CustomerProfile.create
+>[0];
+type CheckoutLoyaltyProfile = {
+  loyaltyStamps: number;
+  loyaltyRemainderInPence: number;
+  availableRewards: number;
+};
 
 async function getProductReadAuthModes(): Promise<ProductReadAuthMode[]> {
   try {
@@ -98,6 +112,49 @@ async function getProductWithFallback(productId: string) {
   throw lastError instanceof Error
     ? lastError
     : new Error("Could not load product.");
+}
+
+async function loadSignedInLoyaltyProfile() {
+  const session = await fetchAuthSession();
+  const userSub = session.tokens?.idToken?.payload.sub;
+
+  if (!session.tokens?.accessToken || typeof userSub !== "string" || !userSub) {
+    return null;
+  }
+
+  const existingProfile = await dataClient.models.CustomerProfile.get(
+    { id: userSub },
+    { authMode: "userPool" },
+  );
+
+  if (existingProfile.data) {
+    return {
+      loyaltyStamps: existingProfile.data.loyaltyStamps,
+      loyaltyRemainderInPence: existingProfile.data.loyaltyRemainderInPence,
+      availableRewards: existingProfile.data.availableRewards,
+    } satisfies CheckoutLoyaltyProfile;
+  }
+
+  const profileInput = {
+    id: userSub,
+    loyaltyStamps: 0,
+    loyaltyRemainderInPence: 0,
+    availableRewards: 0,
+  } as unknown as CustomerProfileCreateInput;
+  const createdProfile = await dataClient.models.CustomerProfile.create(
+    profileInput,
+    { authMode: "userPool" },
+  );
+
+  if (createdProfile.errors?.length || !createdProfile.data) {
+    throw new Error("Could not prepare your loyalty profile.");
+  }
+
+  return {
+    loyaltyStamps: createdProfile.data.loyaltyStamps,
+    loyaltyRemainderInPence: createdProfile.data.loyaltyRemainderInPence,
+    availableRewards: createdProfile.data.availableRewards,
+  } satisfies CheckoutLoyaltyProfile;
 }
 
 function getFieldErrorId(fieldName: string) {
@@ -199,6 +256,10 @@ function CheckoutPage() {
     deliveryUnavailableProductNames,
     setDeliveryUnavailableProductNames,
   ] = useState<string[]>([]);
+  const [loyaltyProfile, setLoyaltyProfile] =
+    useState<CheckoutLoyaltyProfile | null>(null);
+  const [isCheckingLoyalty, setIsCheckingLoyalty] = useState(true);
+  const [loyaltyError, setLoyaltyError] = useState("");
   const ukDeliveryAvailable =
     !isCheckingDeliveryAvailability &&
     !deliveryAvailabilityError &&
@@ -240,6 +301,43 @@ function CheckoutPage() {
       return null;
     }
   }, [basketItems, effectiveFulfilmentMethod]);
+  const estimatedLoyalty = useMemo(() => {
+    if (!loyaltyProfile) {
+      return null;
+    }
+
+    return calculateLoyaltySettlement(loyaltyProfile, basketSubtotalInPence);
+  }, [basketSubtotalInPence, loyaltyProfile]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadLoyaltyProfile() {
+      try {
+        const nextProfile = await loadSignedInLoyaltyProfile();
+
+        if (!isCancelled) {
+          setLoyaltyProfile(nextProfile);
+        }
+      } catch (error) {
+        console.error("Failed to load checkout loyalty profile:", error);
+
+        if (!isCancelled) {
+          setLoyaltyError("Loyalty is unavailable right now.");
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsCheckingLoyalty(false);
+        }
+      }
+    }
+
+    void loadLoyaltyProfile();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let isCancelled = false;
@@ -1027,6 +1125,53 @@ function CheckoutPage() {
               )}
             </strong>
           </div>
+
+          <section className="checkout-loyalty-summary">
+            <h3>Loyalty</h3>
+
+            {isCheckingLoyalty && (
+              <p aria-live="polite">Checking loyalty status...</p>
+            )}
+
+            {!isCheckingLoyalty && loyaltyError && (
+              <p role="alert">{loyaltyError}</p>
+            )}
+
+            {!isCheckingLoyalty && !loyaltyError && !loyaltyProfile && (
+              <p>
+                Sign in before checkout to earn stamps. Guest orders do not
+                earn or redeem loyalty rewards.
+              </p>
+            )}
+
+            {!isCheckingLoyalty && estimatedLoyalty && (
+              <>
+                <p>
+                  You have {loyaltyProfile?.loyaltyStamps ?? 0} /{" "}
+                  {stampsPerReward} stamps and{" "}
+                  {loyaltyProfile?.availableRewards ?? 0} available rewards.
+                </p>
+                <p>
+                  This order is estimated to earn{" "}
+                  {estimatedLoyalty.stampsEarned} stamp
+                  {estimatedLoyalty.stampsEarned === 1 ? "" : "s"} from product
+                  spend. Delivery does not count toward stamps.
+                </p>
+                <p>
+                  Progress after payment:{" "}
+                  {formatLoyaltyCurrency(
+                    estimatedLoyalty.loyaltyRemainderInPence,
+                  )}{" "}
+                  / {formatLoyaltyCurrency(stampSpendInPence)} toward the next
+                  stamp.
+                </p>
+                <p>
+                  Reward redemption is not available yet; rewards will remain
+                  on your account until redemption is safely implemented.
+                </p>
+              </>
+            )}
+          </section>
 
           <Link to="/basket" className="continue-shopping-link">
             Back to basket

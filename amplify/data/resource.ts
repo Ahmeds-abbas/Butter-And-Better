@@ -15,6 +15,9 @@ const schema = a.schema({
     paymentStatus: a.string().required(),
     fulfilmentMethod: a.string(),
     totalInPence: a.integer(),
+    customerProfileId: a.id(),
+    loyaltySettled: a.boolean(),
+    stampsEarned: a.integer(),
   }),
 
   createCheckoutSession: a
@@ -88,6 +91,7 @@ const schema = a.schema({
       customerPhone: a.phone().required(),
       firstName: a.string().required(),
       lastName: a.string().required(),
+      customerProfileId: a.id(),
 
       fulfilmentMethod: a.string().required(),
       addressLine1: a.string(),
@@ -111,6 +115,8 @@ const schema = a.schema({
       refundedAt: a.datetime(),
       loyaltyProcessedAt: a.datetime(),
       loyaltySettled: a.boolean(),
+      customerOrderConfirmationEmailSentAt: a.datetime(),
+      adminOrderNotificationEmailSentAt: a.datetime(),
 
       items: a.hasMany("OrderItem", "orderId"),
     })
