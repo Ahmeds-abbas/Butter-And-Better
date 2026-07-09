@@ -1,3 +1,5 @@
+import { getUrl } from "aws-amplify/storage";
+
 const fallbackProductImageUrl = `data:image/svg+xml,${encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" role="img" aria-label="Butter and Better product photo coming soon">
   <rect width="1200" height="900" fill="#F2F0EC"/>
@@ -10,12 +12,68 @@ const fallbackProductImageUrl = `data:image/svg+xml,${encodeURIComponent(`
 </svg>
 `)}`;
 
+function isDirectMediaUrl(mediaReference: string) {
+  return (
+    mediaReference.startsWith("http://") ||
+    mediaReference.startsWith("https://") ||
+    mediaReference.startsWith("/") ||
+    mediaReference.startsWith("data:") ||
+    mediaReference.startsWith("blob:")
+  );
+}
+
+async function resolveStorageMediaUrl(mediaReference: string) {
+  if (isDirectMediaUrl(mediaReference)) {
+    return mediaReference;
+  }
+
+  const result = await getUrl({ path: mediaReference });
+
+  return result.url.toString();
+}
+
 export function getProductImageUrl(imageKey: string | null | undefined) {
   const trimmedImageKey = imageKey?.trim();
 
   return trimmedImageKey && trimmedImageKey.length > 0
     ? trimmedImageKey
     : fallbackProductImageUrl;
+}
+
+export async function resolveProductImageUrl(
+  imageKey: string | null | undefined,
+) {
+  const trimmedImageKey = imageKey?.trim();
+
+  if (!trimmedImageKey) {
+    return fallbackProductImageUrl;
+  }
+
+  try {
+    return await resolveStorageMediaUrl(trimmedImageKey);
+  } catch (error) {
+    console.error("Failed to resolve product image:", error);
+
+    return fallbackProductImageUrl;
+  }
+}
+
+export async function resolveProductMediaUrl(
+  mediaReference: string | null | undefined,
+) {
+  const trimmedMediaReference = mediaReference?.trim();
+
+  if (!trimmedMediaReference) {
+    return "";
+  }
+
+  try {
+    return await resolveStorageMediaUrl(trimmedMediaReference);
+  } catch (error) {
+    console.error("Failed to resolve product media:", error);
+
+    return "";
+  }
 }
 
 export function getProductImageAltText(
@@ -38,4 +96,18 @@ export function parseProductGalleryImages(
       .map((url) => url.trim())
       .filter(Boolean) ?? []
   );
+}
+
+export async function resolveProductGalleryImages(
+  galleryImageUrls: string | null | undefined,
+) {
+  const parsedGalleryImages = parseProductGalleryImages(galleryImageUrls);
+
+  return (
+    await Promise.all(
+      parsedGalleryImages.map((galleryImageUrl) =>
+        resolveProductMediaUrl(galleryImageUrl),
+      ),
+    )
+  ).filter(Boolean);
 }

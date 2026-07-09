@@ -1723,6 +1723,62 @@
   accent-color: var(--color-green);
 }
 
+.admin-media-options {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-media-options label {
+  display: grid;
+  align-items: stretch;
+  gap: 0.4rem;
+}
+
+.admin-media-options input,
+.admin-media-options textarea {
+  width: 100%;
+  height: auto;
+}
+
+.admin-media-options input[type="file"] {
+  padding: 0.75rem;
+  border: 1px dashed rgba(87, 54, 21, 0.28);
+  border-radius: 0.8rem;
+  background: rgba(242, 240, 236, 0.45);
+}
+
+.admin-inline-note {
+  margin: 0;
+  color: var(--color-green);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.admin-media-preview,
+.admin-media-preview-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.admin-media-preview-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.admin-media-preview img,
+.admin-media-preview video {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border: 1px solid rgba(87, 54, 21, 0.12);
+  border-radius: 0.9rem;
+  background: #f2f0ec;
+}
+
+.admin-media-preview video {
+  object-fit: contain;
+  background: #573615;
+}
+
 .admin-edit-variants {
   display: grid;
   gap: 1rem;

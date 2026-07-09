@@ -6,8 +6,9 @@ import { useBasket } from "../hooks/useBasket";
 import { dataClient } from "../lib/amplifyClient";
 import {
   getProductImageAltText,
-  getProductImageUrl,
-  parseProductGalleryImages,
+  resolveProductGalleryImages,
+  resolveProductImageUrl,
+  resolveProductMediaUrl,
 } from "../lib/productImages";
 import type { Product } from "../types/product";
 
@@ -106,19 +107,23 @@ function ProductPage() {
           );
         }
 
+        const [imageUrl, galleryImageUrls, videoUrl] = await Promise.all([
+          resolveProductImageUrl(backendProduct.imageKey),
+          resolveProductGalleryImages(backendProduct.galleryImageUrls),
+          resolveProductMediaUrl(backendProduct.videoUrl),
+        ]);
+
         const loadedProduct: Product = {
           id: backendProduct.id,
           name: backendProduct.name,
           description: backendProduct.description ?? "",
-          imageUrl: getProductImageUrl(backendProduct.imageKey),
+          imageUrl,
           imageAltText: getProductImageAltText(
             backendProduct.imageAltText,
             backendProduct.name,
           ),
-          galleryImageUrls: parseProductGalleryImages(
-            backendProduct.galleryImageUrls,
-          ),
-          videoUrl: backendProduct.videoUrl ?? "",
+          galleryImageUrls,
+          videoUrl,
           category: backendProduct.category as Product["category"],
           available: backendProduct.isActive,
           variants: variantResponse.data

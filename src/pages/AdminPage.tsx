@@ -2,6 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminOrdersPanel from "../components/admin/AdminOrdersPanel";
 import AdminSectionTabs from "../components/admin/AdminSectionTabs";
 import { dataClient } from "../lib/amplifyClient";
+import { resolveProductMediaUrl } from "../lib/productImages";
+import {
+  parseStoredMediaPaths,
+  removeProductMediaFile,
+  uploadProductMediaFile,
+  type ProductMediaKind,
+} from "../lib/productMediaUpload";
 import type { AdminSection } from "../types/admin";
 
 type AdminVariant = {
@@ -75,6 +82,13 @@ type ProductMessage = {
   text: string;
 };
 
+type ProductMediaField = "galleryImageUrls" | "imageKey" | "videoUrl";
+type ProductMediaPreview = {
+  galleryImageUrls: string[];
+  imageKey: string;
+  videoUrl: string;
+};
+
 type NewVariantDraft = {
   draftId: string;
   name: string;
@@ -83,6 +97,7 @@ type NewVariantDraft = {
 };
 
 type NewProductDraft = {
+  id: string;
   name: string;
   category: string;
   description: string;
@@ -142,6 +157,62 @@ function normalizeOptionalText(value: string) {
   return trimmedValue.length > 0 ? trimmedValue : null;
 }
 
+function appendStoredMediaPaths(currentValue: string, storedPaths: string[]) {
+  const currentStoredPaths = parseStoredMediaPaths(currentValue);
+
+  return [...currentStoredPaths, ...storedPaths].join("\n");
+}
+
+function getRemovedStoredMediaPaths(previousValue: string, nextValue: string) {
+  const nextPaths = new Set(parseStoredMediaPaths(nextValue));
+
+  return parseStoredMediaPaths(previousValue).filter(
+    (previousPath) => !nextPaths.has(previousPath),
+  );
+}
+
+function getMediaKindForField(field: ProductMediaField): ProductMediaKind {
+  if (field === "videoUrl") {
+    return "video";
+  }
+
+  if (field === "galleryImageUrls") {
+    return "gallery";
+  }
+
+  return "main";
+}
+
+function createEmptyMediaPreview(): ProductMediaPreview {
+  return {
+    galleryImageUrls: [],
+    imageKey: "",
+    videoUrl: "",
+  };
+}
+
+async function resolveMediaPreviewFromFields(fields: {
+  galleryImageUrls: string;
+  imageKey: string;
+  videoUrl: string;
+}) {
+  const [imageKey, galleryImageUrls, videoUrl] = await Promise.all([
+    resolveProductMediaUrl(fields.imageKey),
+    Promise.all(
+      parseStoredMediaPaths(fields.galleryImageUrls).map((path) =>
+        resolveProductMediaUrl(path),
+      ),
+    ),
+    resolveProductMediaUrl(fields.videoUrl),
+  ]);
+
+  return {
+    galleryImageUrls: galleryImageUrls.filter(Boolean),
+    imageKey,
+    videoUrl,
+  };
+}
+
 function createDraftFromProduct(product: AdminProduct): ProductDraft {
   return {
     name: product.name,
@@ -173,6 +244,7 @@ function createBlankVariantDraft(): NewVariantDraft {
 
 function createBlankProductDraft(): NewProductDraft {
   return {
+    id: createId("product"),
     name: "",
     category: "",
     description: "",
@@ -225,6 +297,17 @@ function AdminPage() {
   const [createMessage, setCreateMessage] = useState<ProductMessage | null>(
     null,
   );
+  const [uploadingMediaTarget, setUploadingMediaTarget] = useState<
+    string | null
+  >(null);
+  const [mediaUploadProgress, setMediaUploadProgress] = useState<
+    Record<string, number>
+  >({});
+  const [newProductMediaPreview, setNewProductMediaPreview] =
+    useState<ProductMediaPreview>(() => createEmptyMediaPreview());
+  const [productMediaPreviews, setProductMediaPreviews] = useState<
+    Record<string, ProductMediaPreview>
+  >({});
   const [pendingDeleteProduct, setPendingDeleteProduct] =
     useState<AdminProduct | null>(null);
   const [deleteConfirmationValue, setDeleteConfirmationValue] = useState("");
@@ -341,6 +424,72 @@ function AdminPage() {
     };
   }, [deletingProductId, pendingDeleteProduct]);
 
+  useEffect(() => {
+    let isCancelled = false;
+
+    if (!isCreatePanelOpen) {
+      return;
+    }
+
+    async function hydrateNewProductPreview() {
+      const preview = await resolveMediaPreviewFromFields({
+        galleryImageUrls: newProductDraft.galleryImageUrls,
+        imageKey: newProductDraft.imageKey,
+        videoUrl: newProductDraft.videoUrl,
+      });
+
+      if (!isCancelled) {
+        setNewProductMediaPreview(preview);
+      }
+    }
+
+    void hydrateNewProductPreview();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    isCreatePanelOpen,
+    newProductDraft.galleryImageUrls,
+    newProductDraft.imageKey,
+    newProductDraft.videoUrl,
+  ]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    if (!editingProductId || !productDraft) {
+      return;
+    }
+
+    async function hydrateProductPreview() {
+      const preview = await resolveMediaPreviewFromFields({
+        galleryImageUrls: productDraft.galleryImageUrls,
+        imageKey: productDraft.imageKey,
+        videoUrl: productDraft.videoUrl,
+      });
+
+      if (!isCancelled) {
+        setProductMediaPreviews((currentPreviews) => ({
+          ...currentPreviews,
+          [editingProductId]: preview,
+        }));
+      }
+    }
+
+    void hydrateProductPreview();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    editingProductId,
+    productDraft,
+    productDraft?.galleryImageUrls,
+    productDraft?.imageKey,
+    productDraft?.videoUrl,
+  ]);
+
   const catalogueStats = useMemo(() => {
     const activeProducts = products.filter((product) => product.isActive);
     const totalVariants = products.reduce(
@@ -425,6 +574,10 @@ function AdminPage() {
     setDeleteSuccessMessage("");
     setEditingProductId(product.id);
     setProductDraft(createDraftFromProduct(product));
+    setProductMediaPreviews((currentPreviews) => ({
+      ...currentPreviews,
+      [product.id]: createEmptyMediaPreview(),
+    }));
     setValidationMessages([]);
     setProductMessages((currentMessages) =>
       removeProductMessage(currentMessages, product.id),
@@ -432,6 +585,28 @@ function AdminPage() {
   }
 
   function cancelEditingProduct() {
+    const originalProduct = products.find(
+      (product) => product.id === editingProductId,
+    );
+
+    if (originalProduct && productDraft) {
+      void removeStoredMediaPaths([
+        ...getRemovedStoredMediaPaths(productDraft.imageKey, originalProduct.imageKey),
+        ...getRemovedStoredMediaPaths(
+          productDraft.galleryImageUrls,
+          originalProduct.galleryImageUrls,
+        ),
+        ...getRemovedStoredMediaPaths(productDraft.videoUrl, originalProduct.videoUrl),
+      ]);
+    }
+
+    if (editingProductId) {
+      setProductMediaPreviews((currentPreviews) => ({
+        ...currentPreviews,
+        [editingProductId]: createEmptyMediaPreview(),
+      }));
+    }
+
     setEditingProductId(null);
     setProductDraft(null);
     setValidationMessages([]);
@@ -447,13 +622,20 @@ function AdminPage() {
     setRetryProductDeleteOnly(false);
     setDeleteSuccessMessage("");
     setIsCreatePanelOpen(true);
+    setNewProductMediaPreview(createEmptyMediaPreview());
     setCreateMessage(null);
     setCreateValidationMessages({});
   }
 
   function cancelCreateProduct() {
+    void removeStoredMediaPaths([
+      ...parseStoredMediaPaths(newProductDraft.imageKey),
+      ...parseStoredMediaPaths(newProductDraft.galleryImageUrls),
+      ...parseStoredMediaPaths(newProductDraft.videoUrl),
+    ]);
     setIsCreatePanelOpen(false);
     setNewProductDraft(createBlankProductDraft());
+    setNewProductMediaPreview(createEmptyMediaPreview());
     setCreateValidationMessages({});
     setCreateMessage(null);
   }
@@ -526,6 +708,302 @@ function AdminPage() {
       ...currentDraft,
       [field]: value,
     }));
+  }
+
+  async function uploadMediaFiles(
+    files: FileList | null,
+    field: ProductMediaField,
+    productId: string,
+    uploadTarget: string,
+  ) {
+    if (!files || files.length === 0) {
+      return [];
+    }
+
+    const uploadableFiles = Array.from(files);
+    const mediaKind = getMediaKindForField(field);
+
+    return Promise.all(
+      uploadableFiles.map((file, index) => {
+        const fileTarget = `${uploadTarget}-${index}`;
+
+        return uploadProductMediaFile({
+          file,
+          kind: mediaKind,
+          productId,
+          onProgress: (progress) => {
+            setMediaUploadProgress((currentProgress) => ({
+              ...currentProgress,
+              [fileTarget]: progress,
+              [uploadTarget]: Math.max(
+                currentProgress[uploadTarget] ?? 0,
+                progress,
+              ),
+            }));
+          },
+        });
+      }),
+    );
+  }
+
+  async function resolveMediaPreviews(paths: string[]) {
+    return (
+      await Promise.all(paths.map((path) => resolveProductMediaUrl(path)))
+    ).filter(Boolean);
+  }
+
+  async function removeStoredMediaPaths(paths: string[]) {
+    await Promise.allSettled(paths.map((path) => removeProductMediaFile(path)));
+  }
+
+  async function handleNewProductMediaUpload(
+    field: ProductMediaField,
+    files: FileList | null,
+  ) {
+    const uploadTarget = `new-${field}`;
+
+    setUploadingMediaTarget(uploadTarget);
+    setActionError("");
+    setCreateMessage(null);
+    setMediaUploadProgress((currentProgress) => ({
+      ...currentProgress,
+      [uploadTarget]: 0,
+    }));
+
+    try {
+      const uploadedPaths = await uploadMediaFiles(
+        files,
+        field,
+        newProductDraft.id,
+        uploadTarget,
+      );
+
+      if (uploadedPaths.length === 0) {
+        return;
+      }
+
+      const previewUrls = await resolveMediaPreviews(uploadedPaths);
+      const previousValue = newProductDraft[field];
+
+      setNewProductDraft((currentDraft) => ({
+        ...currentDraft,
+        [field]:
+          field === "galleryImageUrls"
+            ? appendStoredMediaPaths(currentDraft.galleryImageUrls, uploadedPaths)
+            : uploadedPaths[0],
+      }));
+      setNewProductMediaPreview((currentPreview) => ({
+        ...currentPreview,
+        [field]:
+          field === "galleryImageUrls"
+            ? [...currentPreview.galleryImageUrls, ...previewUrls]
+            : previewUrls[0] ?? "",
+      }));
+      if (field !== "galleryImageUrls" && typeof previousValue === "string") {
+        await removeStoredMediaPaths(parseStoredMediaPaths(previousValue));
+      }
+      setCreateMessage({
+        type: "success",
+        text: "Media uploaded. Save the product to keep these changes.",
+      });
+    } catch (error) {
+      console.error("Failed to upload product media:", error);
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "Media upload failed. Please try again.",
+      );
+    } finally {
+      setUploadingMediaTarget(null);
+      setMediaUploadProgress((currentProgress) => ({
+        ...currentProgress,
+        [uploadTarget]: 0,
+      }));
+    }
+  }
+
+  async function handleProductMediaUpload(
+    product: AdminProduct,
+    field: ProductMediaField,
+    files: FileList | null,
+  ) {
+    const uploadTarget = `${product.id}-${field}`;
+
+    setUploadingMediaTarget(uploadTarget);
+    setActionError("");
+    setMediaUploadProgress((currentProgress) => ({
+      ...currentProgress,
+      [uploadTarget]: 0,
+    }));
+    setProductMessages((currentMessages) =>
+      removeProductMessage(currentMessages, product.id),
+    );
+
+    try {
+      const uploadedPaths = await uploadMediaFiles(
+        files,
+        field,
+        product.id,
+        uploadTarget,
+      );
+
+      if (uploadedPaths.length === 0) {
+        return;
+      }
+
+      const previewUrls = await resolveMediaPreviews(uploadedPaths);
+      setProductDraft((currentDraft) =>
+        currentDraft
+          ? {
+              ...currentDraft,
+              [field]:
+                field === "galleryImageUrls"
+                  ? appendStoredMediaPaths(
+                      currentDraft.galleryImageUrls,
+                      uploadedPaths,
+                    )
+                  : uploadedPaths[0],
+            }
+          : currentDraft,
+      );
+      setProductMediaPreviews((currentPreviews) => {
+        const currentProductPreview =
+          currentPreviews[product.id] ?? createEmptyMediaPreview();
+
+        return {
+          ...currentPreviews,
+          [product.id]: {
+            ...currentProductPreview,
+            [field]:
+              field === "galleryImageUrls"
+                ? [
+                    ...currentProductPreview.galleryImageUrls,
+                    ...previewUrls,
+                  ]
+                : previewUrls[0] ?? "",
+          },
+        };
+      });
+      setProductMessages((currentMessages) => ({
+        ...currentMessages,
+        [product.id]: {
+          type: "success",
+          text: "Media uploaded. Save changes to publish it on the site.",
+        },
+      }));
+    } catch (error) {
+      console.error("Failed to upload product media:", error);
+      setProductMessages((currentMessages) => ({
+        ...currentMessages,
+        [product.id]: {
+          type: "error",
+          text:
+            error instanceof Error
+              ? error.message
+              : "Media upload failed. Please try again.",
+        },
+      }));
+    } finally {
+      setUploadingMediaTarget(null);
+      setMediaUploadProgress((currentProgress) => ({
+        ...currentProgress,
+        [uploadTarget]: 0,
+      }));
+    }
+  }
+
+  async function removeNewProductMedia(field: ProductMediaField, index?: number) {
+    const currentValue = newProductDraft[field];
+
+    if (field === "galleryImageUrls") {
+      const currentPaths = parseStoredMediaPaths(newProductDraft.galleryImageUrls);
+      const nextPaths =
+        typeof index === "number"
+          ? currentPaths.filter((_, pathIndex) => pathIndex !== index)
+          : [];
+      const removedPaths =
+        typeof index === "number" ? currentPaths.slice(index, index + 1) : currentPaths;
+
+      await removeStoredMediaPaths(removedPaths);
+      updateNewProductDraft("galleryImageUrls", nextPaths.join("\n"));
+      setNewProductMediaPreview((currentPreview) => ({
+        ...currentPreview,
+        galleryImageUrls:
+          typeof index === "number"
+            ? currentPreview.galleryImageUrls.filter(
+                (_, previewIndex) => previewIndex !== index,
+              )
+            : [],
+      }));
+      return;
+    }
+
+    await removeStoredMediaPaths(parseStoredMediaPaths(currentValue));
+    updateNewProductDraft(field, "");
+    setNewProductMediaPreview((currentPreview) => ({
+      ...currentPreview,
+      [field]: "",
+    }));
+  }
+
+  async function removeProductMedia(
+    product: AdminProduct,
+    field: ProductMediaField,
+    index?: number,
+  ) {
+    const currentValue = productDraft?.[field] ?? product[field];
+
+    if (field === "galleryImageUrls") {
+      const currentPaths = parseStoredMediaPaths(currentValue);
+      const originalPaths = new Set(parseStoredMediaPaths(product[field]));
+      const nextPaths =
+        typeof index === "number"
+          ? currentPaths.filter((_, pathIndex) => pathIndex !== index)
+          : [];
+      const removedPaths =
+        typeof index === "number" ? currentPaths.slice(index, index + 1) : currentPaths;
+
+      await removeStoredMediaPaths(
+        removedPaths.filter((path) => !originalPaths.has(path)),
+      );
+      updateProductDraft("galleryImageUrls", nextPaths.join("\n"));
+      setProductMediaPreviews((currentPreviews) => {
+        const currentProductPreview =
+          currentPreviews[product.id] ?? createEmptyMediaPreview();
+
+        return {
+          ...currentPreviews,
+          [product.id]: {
+            ...currentProductPreview,
+            galleryImageUrls:
+              typeof index === "number"
+                ? currentProductPreview.galleryImageUrls.filter(
+                    (_, previewIndex) => previewIndex !== index,
+                  )
+                : [],
+          },
+        };
+      });
+      return;
+    }
+
+    const originalPaths = new Set(parseStoredMediaPaths(product[field]));
+    await removeStoredMediaPaths(
+      parseStoredMediaPaths(currentValue).filter((path) => !originalPaths.has(path)),
+    );
+    updateProductDraft(field, "");
+    setProductMediaPreviews((currentPreviews) => {
+      const currentProductPreview =
+        currentPreviews[product.id] ?? createEmptyMediaPreview();
+
+      return {
+        ...currentPreviews,
+        [product.id]: {
+          ...currentProductPreview,
+          [field]: "",
+        },
+      };
+    });
   }
 
   function updateNewVariantDraft(
@@ -782,6 +1260,15 @@ function AdminPage() {
         }),
       };
 
+      await removeStoredMediaPaths([
+        ...getRemovedStoredMediaPaths(product.imageKey, updatedProduct.imageKey),
+        ...getRemovedStoredMediaPaths(
+          product.galleryImageUrls,
+          updatedProduct.galleryImageUrls,
+        ),
+        ...getRemovedStoredMediaPaths(product.videoUrl, updatedProduct.videoUrl),
+      ]);
+
       setProducts((currentProducts) =>
         currentProducts.map((currentProduct) =>
           currentProduct.id === product.id ? updatedProduct : currentProduct,
@@ -796,6 +1283,10 @@ function AdminPage() {
       }));
       setEditingProductId(null);
       setProductDraft(null);
+      setProductMediaPreviews((currentPreviews) => ({
+        ...currentPreviews,
+        [product.id]: createEmptyMediaPreview(),
+      }));
     } catch (error) {
       console.error("Failed to save product:", error);
       setProductMessages((currentMessages) => ({
@@ -898,6 +1389,12 @@ function AdminPage() {
         );
       }
 
+      await removeStoredMediaPaths([
+        ...parseStoredMediaPaths(product.imageKey),
+        ...parseStoredMediaPaths(product.galleryImageUrls),
+        ...parseStoredMediaPaths(product.videoUrl),
+      ]);
+
       setProducts((currentProducts) =>
         currentProducts.filter(
           (currentProduct) => currentProduct.id !== product.id,
@@ -941,7 +1438,7 @@ function AdminPage() {
       return;
     }
 
-    const productId = createId("product");
+    const productId = newProductDraft.id;
     const productSlug = createSlug(newProductDraft.name, productId);
     const createdVariantIds: string[] = [];
     const nextVariants = newProductDraft.variants.map((variant, index) => {
@@ -1057,9 +1554,22 @@ function AdminPage() {
         },
       }));
       setNewProductDraft(createBlankProductDraft());
+      setNewProductMediaPreview(createEmptyMediaPreview());
       setIsCreatePanelOpen(false);
     } catch (error) {
       console.error("Failed to create product:", error);
+      await removeStoredMediaPaths([
+        ...parseStoredMediaPaths(newProductDraft.imageKey),
+        ...parseStoredMediaPaths(newProductDraft.galleryImageUrls),
+        ...parseStoredMediaPaths(newProductDraft.videoUrl),
+      ]);
+      setNewProductDraft((currentDraft) => ({
+        ...currentDraft,
+        imageKey: "",
+        galleryImageUrls: "",
+        videoUrl: "",
+      }));
+      setNewProductMediaPreview(createEmptyMediaPreview());
       setCreateMessage({
         type: "error",
         text: "Could not create the product. The existing catalogue is unchanged.",
@@ -1270,17 +1780,61 @@ function AdminPage() {
                 <legend>Product media</legend>
 
                 <label>
-                  <span>Main image URL or asset path</span>
+                  <span>Main image upload</span>
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                    disabled={
+                      isCreatingProduct ||
+                      uploadingMediaTarget === "new-imageKey"
+                    }
+                    onChange={(event) => {
+                      void handleNewProductMediaUpload(
+                        "imageKey",
+                        event.target.files,
+                      );
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                  {uploadingMediaTarget === "new-imageKey" && (
+                    <p className="admin-inline-note">
+                      Uploading image... {mediaUploadProgress["new-imageKey"] ?? 0}%
+                    </p>
+                  )}
+                </label>
+
+                <label>
+                  <span>Stored main image path</span>
                   <input
                     type="text"
                     value={newProductDraft.imageKey}
                     disabled={isCreatingProduct}
-                    placeholder="https://... or /src/assets/hero.png"
+                    placeholder="Upload an image to fill this"
                     onChange={(event) =>
                       updateNewProductDraft("imageKey", event.target.value)
                     }
                   />
                 </label>
+
+                {(newProductMediaPreview.imageKey ||
+                  newProductDraft.imageKey) && (
+                  <div className="admin-media-preview">
+                    {newProductMediaPreview.imageKey && (
+                      <img
+                        src={newProductMediaPreview.imageKey}
+                        alt="Main product upload preview"
+                      />
+                    )}
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={isCreatingProduct}
+                      onClick={() => void removeNewProductMedia("imageKey")}
+                    >
+                      Remove main image
+                    </button>
+                  </div>
+                )}
 
                 <label>
                   <span>Image alt text</span>
@@ -1296,12 +1850,38 @@ function AdminPage() {
                 </label>
 
                 <label>
-                  <span>Gallery image URLs</span>
+                  <span>Gallery image uploads</span>
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                    multiple
+                    disabled={
+                      isCreatingProduct ||
+                      uploadingMediaTarget === "new-galleryImageUrls"
+                    }
+                    onChange={(event) => {
+                      void handleNewProductMediaUpload(
+                        "galleryImageUrls",
+                        event.target.files,
+                      );
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                  {uploadingMediaTarget === "new-galleryImageUrls" && (
+                    <p className="admin-inline-note">
+                      Uploading gallery...{" "}
+                      {mediaUploadProgress["new-galleryImageUrls"] ?? 0}%
+                    </p>
+                  )}
+                </label>
+
+                <label>
+                  <span>Stored gallery image paths</span>
                   <textarea
                     value={newProductDraft.galleryImageUrls}
                     disabled={isCreatingProduct}
                     rows={4}
-                    placeholder="One image URL per line"
+                    placeholder="Upload gallery images to fill this"
                     onChange={(event) =>
                       updateNewProductDraft(
                         "galleryImageUrls",
@@ -1311,18 +1891,95 @@ function AdminPage() {
                   />
                 </label>
 
+                {(newProductMediaPreview.galleryImageUrls.length > 0 ||
+                  newProductDraft.galleryImageUrls) && (
+                  <div className="admin-media-preview-grid">
+                    {parseStoredMediaPaths(newProductDraft.galleryImageUrls).map(
+                      (path, index) => (
+                        <div key={`${path}-${index}`} className="admin-media-preview">
+                          {newProductMediaPreview.galleryImageUrls[index] && (
+                            <img
+                              src={newProductMediaPreview.galleryImageUrls[index]}
+                              alt={`Gallery upload preview ${index + 1}`}
+                            />
+                          )}
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            disabled={isCreatingProduct}
+                            onClick={() =>
+                              void removeNewProductMedia(
+                                "galleryImageUrls",
+                                index,
+                              )
+                            }
+                          >
+                            Remove gallery image
+                          </button>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                )}
+
                 <label>
-                  <span>Short video URL</span>
+                  <span>Short video upload</span>
+                  <input
+                    type="file"
+                    accept=".mp4,.webm,.mov,video/mp4,video/webm,video/quicktime"
+                    disabled={
+                      isCreatingProduct ||
+                      uploadingMediaTarget === "new-videoUrl"
+                    }
+                    onChange={(event) => {
+                      void handleNewProductMediaUpload(
+                        "videoUrl",
+                        event.target.files,
+                      );
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                  {uploadingMediaTarget === "new-videoUrl" && (
+                    <p className="admin-inline-note">
+                      Uploading video... {mediaUploadProgress["new-videoUrl"] ?? 0}%
+                    </p>
+                  )}
+                </label>
+
+                <label>
+                  <span>Stored video path</span>
                   <input
                     type="text"
                     value={newProductDraft.videoUrl}
                     disabled={isCreatingProduct}
-                    placeholder="https://.../video.mp4"
+                    placeholder="Upload a video to fill this"
                     onChange={(event) =>
                       updateNewProductDraft("videoUrl", event.target.value)
                     }
                   />
                 </label>
+
+                {(newProductMediaPreview.videoUrl ||
+                  newProductDraft.videoUrl) && (
+                  <div className="admin-media-preview">
+                    {newProductMediaPreview.videoUrl && (
+                      <video
+                        controls
+                        playsInline
+                        preload="metadata"
+                        src={newProductMediaPreview.videoUrl}
+                      />
+                    )}
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={isCreatingProduct}
+                      onClick={() => void removeNewProductMedia("videoUrl")}
+                    >
+                      Remove video
+                    </button>
+                  </div>
+                )}
               </fieldset>
 
               <fieldset className="admin-edit-options">
@@ -1494,7 +2151,11 @@ function AdminPage() {
           )}
 
           <div className="admin-product-grid">
-            {products.map((product) => (
+            {products.map((product) => {
+              const productMediaPreview =
+                productMediaPreviews[product.id] ?? createEmptyMediaPreview();
+
+              return (
               <article
                 key={product.id}
                 className={`admin-product-card ${
@@ -1781,17 +2442,66 @@ function AdminPage() {
                       <legend>Product media</legend>
 
                       <label>
-                        <span>Main image URL or asset path</span>
+                        <span>Main image upload</span>
+                        <input
+                          type="file"
+                          accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                          disabled={
+                            savingProductId === product.id ||
+                            uploadingMediaTarget === `${product.id}-imageKey`
+                          }
+                          onChange={(event) => {
+                            void handleProductMediaUpload(
+                              product,
+                              "imageKey",
+                              event.target.files,
+                            );
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                        {uploadingMediaTarget === `${product.id}-imageKey` && (
+                          <p className="admin-inline-note">
+                            Uploading image...{" "}
+                            {mediaUploadProgress[`${product.id}-imageKey`] ?? 0}
+                            %
+                          </p>
+                        )}
+                      </label>
+
+                      <label>
+                        <span>Stored main image path</span>
                         <input
                           type="text"
                           value={productDraft.imageKey}
                           disabled={savingProductId === product.id}
-                          placeholder="https://... or /src/assets/hero.png"
+                          placeholder="Upload an image to fill this"
                           onChange={(event) =>
                             updateProductDraft("imageKey", event.target.value)
                           }
                         />
                       </label>
+
+                      {(productMediaPreview.imageKey ||
+                        productDraft.imageKey) && (
+                        <div className="admin-media-preview">
+                          {productMediaPreview.imageKey && (
+                            <img
+                              src={productMediaPreview.imageKey}
+                              alt="Main product upload preview"
+                            />
+                          )}
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            disabled={savingProductId === product.id}
+                            onClick={() =>
+                              void removeProductMedia(product, "imageKey")
+                            }
+                          >
+                            Remove main image
+                          </button>
+                        </div>
+                      )}
 
                       <label>
                         <span>Image alt text</span>
@@ -1810,12 +2520,44 @@ function AdminPage() {
                       </label>
 
                       <label>
-                        <span>Gallery image URLs</span>
+                        <span>Gallery image uploads</span>
+                        <input
+                          type="file"
+                          accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                          multiple
+                          disabled={
+                            savingProductId === product.id ||
+                            uploadingMediaTarget ===
+                              `${product.id}-galleryImageUrls`
+                          }
+                          onChange={(event) => {
+                            void handleProductMediaUpload(
+                              product,
+                              "galleryImageUrls",
+                              event.target.files,
+                            );
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                        {uploadingMediaTarget ===
+                          `${product.id}-galleryImageUrls` && (
+                          <p className="admin-inline-note">
+                            Uploading gallery...{" "}
+                            {mediaUploadProgress[
+                              `${product.id}-galleryImageUrls`
+                            ] ?? 0}
+                            %
+                          </p>
+                        )}
+                      </label>
+
+                      <label>
+                        <span>Stored gallery image paths</span>
                         <textarea
                           value={productDraft.galleryImageUrls}
                           disabled={savingProductId === product.id}
                           rows={4}
-                          placeholder="One image URL per line"
+                          placeholder="Upload gallery images to fill this"
                           onChange={(event) =>
                             updateProductDraft(
                               "galleryImageUrls",
@@ -1825,18 +2567,106 @@ function AdminPage() {
                         />
                       </label>
 
+                      {(productMediaPreview.galleryImageUrls.length > 0 ||
+                        productDraft.galleryImageUrls) && (
+                        <div className="admin-media-preview-grid">
+                          {parseStoredMediaPaths(
+                            productDraft.galleryImageUrls,
+                          ).map((path, index) => (
+                            <div
+                              key={`${path}-${index}`}
+                              className="admin-media-preview"
+                            >
+                              {productMediaPreview.galleryImageUrls[index] && (
+                                <img
+                                  src={
+                                    productMediaPreview.galleryImageUrls[index]
+                                  }
+                                  alt={`Gallery upload preview ${index + 1}`}
+                                />
+                              )}
+                              <button
+                                type="button"
+                                className="secondary-button"
+                                disabled={savingProductId === product.id}
+                                onClick={() =>
+                                  void removeProductMedia(
+                                    product,
+                                    "galleryImageUrls",
+                                    index,
+                                  )
+                                }
+                              >
+                                Remove gallery image
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       <label>
-                        <span>Short video URL</span>
+                        <span>Short video upload</span>
+                        <input
+                          type="file"
+                          accept=".mp4,.webm,.mov,video/mp4,video/webm,video/quicktime"
+                          disabled={
+                            savingProductId === product.id ||
+                            uploadingMediaTarget === `${product.id}-videoUrl`
+                          }
+                          onChange={(event) => {
+                            void handleProductMediaUpload(
+                              product,
+                              "videoUrl",
+                              event.target.files,
+                            );
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                        {uploadingMediaTarget === `${product.id}-videoUrl` && (
+                          <p className="admin-inline-note">
+                            Uploading video...{" "}
+                            {mediaUploadProgress[`${product.id}-videoUrl`] ?? 0}
+                            %
+                          </p>
+                        )}
+                      </label>
+
+                      <label>
+                        <span>Stored video path</span>
                         <input
                           type="text"
                           value={productDraft.videoUrl}
                           disabled={savingProductId === product.id}
-                          placeholder="https://.../video.mp4"
+                          placeholder="Upload a video to fill this"
                           onChange={(event) =>
                             updateProductDraft("videoUrl", event.target.value)
                           }
                         />
                       </label>
+
+                      {(productMediaPreview.videoUrl ||
+                        productDraft.videoUrl) && (
+                        <div className="admin-media-preview">
+                          {productMediaPreview.videoUrl && (
+                            <video
+                              controls
+                              playsInline
+                              preload="metadata"
+                              src={productMediaPreview.videoUrl}
+                            />
+                          )}
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            disabled={savingProductId === product.id}
+                            onClick={() =>
+                              void removeProductMedia(product, "videoUrl")
+                            }
+                          >
+                            Remove video
+                          </button>
+                        </div>
+                      )}
                     </fieldset>
 
                     <fieldset className="admin-edit-options">
@@ -1956,7 +2786,8 @@ function AdminPage() {
                   </form>
                 )}
               </article>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}

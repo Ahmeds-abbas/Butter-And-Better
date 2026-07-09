@@ -5,8 +5,9 @@ import ProductCard from "../components/products/ProductCard";
 import { dataClient } from "../lib/amplifyClient";
 import {
   getProductImageAltText,
-  getProductImageUrl,
-  parseProductGalleryImages,
+  resolveProductGalleryImages,
+  resolveProductImageUrl,
+  resolveProductMediaUrl,
 } from "../lib/productImages";
 import type { Product } from "../types/product";
 
@@ -108,19 +109,23 @@ function ShopPage() {
                   price: variant.priceInPence / 100,
                 }));
 
+              const [imageUrl, galleryImageUrls, videoUrl] = await Promise.all([
+                resolveProductImageUrl(product.imageKey),
+                resolveProductGalleryImages(product.galleryImageUrls),
+                resolveProductMediaUrl(product.videoUrl),
+              ]);
+
               return {
                 id: product.id,
                 name: product.name,
                 description: product.description ?? "",
-                imageUrl: getProductImageUrl(product.imageKey),
+                imageUrl,
                 imageAltText: getProductImageAltText(
                   product.imageAltText,
                   product.name,
                 ),
-                galleryImageUrls: parseProductGalleryImages(
-                  product.galleryImageUrls,
-                ),
-                videoUrl: product.videoUrl ?? "",
+                galleryImageUrls,
+                videoUrl,
                 category: product.category as Product["category"],
                 available: product.isActive,
                 variants,
