@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchAuthSession } from "aws-amplify/auth";
+import AnnouncementTicker from "../components/marketing/AnnouncementTicker";
 import ProductCard from "../components/products/ProductCard";
 import { dataClient } from "../lib/amplifyClient";
-import { getProductImageUrl } from "../lib/productImages";
+import {
+  getProductImageAltText,
+  getProductImageUrl,
+  parseProductGalleryImages,
+} from "../lib/productImages";
 import type { Product } from "../types/product";
 
 type ProductReadAuthMode = "userPool" | "iam";
@@ -108,6 +113,14 @@ function ShopPage() {
                 name: product.name,
                 description: product.description ?? "",
                 imageUrl: getProductImageUrl(product.imageKey),
+                imageAltText: getProductImageAltText(
+                  product.imageAltText,
+                  product.name,
+                ),
+                galleryImageUrls: parseProductGalleryImages(
+                  product.galleryImageUrls,
+                ),
+                videoUrl: product.videoUrl ?? "",
                 category: product.category as Product["category"],
                 available: product.isActive,
                 variants,
@@ -180,13 +193,28 @@ function ShopPage() {
 
   return (
     <main className="page">
-      <section className="page-header">
-        <p className="eyebrow">Our menu</p>
-        <h1>Shop all bakes</h1>
-        <p>
-          Browse cookies, brownies, brookies, blondies and banana pudding.
-        </p>
+      <section className="page-header shop-page-header">
+        <div>
+          <p className="eyebrow">Our menu</p>
+          <h1>Shop all bakes</h1>
+          <p>
+            Image-first treats, clear fulfilment labels and quick add for the
+            fastest route to a Butter & Better box.
+          </p>
+        </div>
+        <div className="media-placeholder shop-header-media">
+          <span>Product photo coming soon</span>
+        </div>
       </section>
+
+      <AnnouncementTicker
+        messages={[
+          "Pickup available",
+          "UK tracked delivery on selected products",
+          "Secure Stripe Checkout",
+          "Earn loyalty stamps",
+        ]}
+      />
 
       {isLoading && (
         <section className="no-products-found" aria-live="polite">

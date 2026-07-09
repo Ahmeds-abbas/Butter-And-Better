@@ -21,6 +21,9 @@ type AdminProduct = {
   category: string;
   description: string;
   imageKey: string;
+  imageAltText: string;
+  galleryImageUrls: string;
+  videoUrl: string;
   isActive: boolean;
   nationwideDelivery: boolean;
   manchesterDelivery: boolean;
@@ -58,8 +61,11 @@ type ProductDraft = {
   name: string;
   category: string;
   description: string;
+  imageKey: string;
+  imageAltText: string;
+  galleryImageUrls: string;
+  videoUrl: string;
   nationwideDelivery: boolean;
-  manchesterDelivery: boolean;
   collectionAvailable: boolean;
   variants: VariantDraft[];
 };
@@ -80,9 +86,12 @@ type NewProductDraft = {
   name: string;
   category: string;
   description: string;
+  imageKey: string;
+  imageAltText: string;
+  galleryImageUrls: string;
+  videoUrl: string;
   isActive: boolean;
   nationwideDelivery: boolean;
-  manchesterDelivery: boolean;
   collectionAvailable: boolean;
   variants: NewVariantDraft[];
 };
@@ -127,13 +136,22 @@ function parsePoundsToPence(price: string) {
   return Number(pounds) * 100 + Number(normalizedPence);
 }
 
+function normalizeOptionalText(value: string) {
+  const trimmedValue = value.trim();
+
+  return trimmedValue.length > 0 ? trimmedValue : null;
+}
+
 function createDraftFromProduct(product: AdminProduct): ProductDraft {
   return {
     name: product.name,
     category: product.category,
     description: product.description,
+    imageKey: product.imageKey,
+    imageAltText: product.imageAltText,
+    galleryImageUrls: product.galleryImageUrls,
+    videoUrl: product.videoUrl,
     nationwideDelivery: product.nationwideDelivery,
-    manchesterDelivery: product.manchesterDelivery,
     collectionAvailable: product.collectionAvailable,
     variants: product.variants.map((variant) => ({
       id: variant.id,
@@ -158,9 +176,12 @@ function createBlankProductDraft(): NewProductDraft {
     name: "",
     category: "",
     description: "",
+    imageKey: "",
+    imageAltText: "",
+    galleryImageUrls: "",
+    videoUrl: "",
     isActive: true,
     nationwideDelivery: true,
-    manchesterDelivery: true,
     collectionAvailable: true,
     variants: [createBlankVariantDraft()],
   };
@@ -251,6 +272,9 @@ function AdminPage() {
             category: product.category,
             description: product.description ?? "",
             imageKey: product.imageKey ?? "",
+            imageAltText: product.imageAltText ?? "",
+            galleryImageUrls: product.galleryImageUrls ?? "",
+            videoUrl: product.videoUrl ?? "",
             isActive: product.isActive,
             nationwideDelivery: product.nationwideDelivery,
             manchesterDelivery: product.manchesterDelivery,
@@ -346,9 +370,12 @@ function AdminPage() {
         category: product.category,
         description: product.description,
         imageKey: product.imageKey,
+        imageAltText: product.imageAltText,
+        galleryImageUrls: product.galleryImageUrls,
+        videoUrl: product.videoUrl,
         isActive: nextIsActive,
         nationwideDelivery: product.nationwideDelivery,
-        manchesterDelivery: product.manchesterDelivery,
+        manchesterDelivery: false,
         collectionAvailable: product.collectionAvailable,
       } as unknown as ProductUpdateInput;
 
@@ -658,10 +685,13 @@ function AdminPage() {
         slug: product.slug,
         category: productDraft.category.trim(),
         description: productDraft.description.trim(),
-        imageKey: product.imageKey,
+        imageKey: normalizeOptionalText(productDraft.imageKey),
+        imageAltText: normalizeOptionalText(productDraft.imageAltText),
+        galleryImageUrls: normalizeOptionalText(productDraft.galleryImageUrls),
+        videoUrl: normalizeOptionalText(productDraft.videoUrl),
         isActive: product.isActive,
         nationwideDelivery: productDraft.nationwideDelivery,
-        manchesterDelivery: productDraft.manchesterDelivery,
+        manchesterDelivery: false,
         collectionAvailable: productDraft.collectionAvailable,
       } as unknown as ProductUpdateInput;
 
@@ -729,8 +759,12 @@ function AdminPage() {
         name: productDraft.name.trim(),
         category: productDraft.category.trim(),
         description: productDraft.description.trim(),
+        imageKey: productDraft.imageKey.trim(),
+        imageAltText: productDraft.imageAltText.trim(),
+        galleryImageUrls: productDraft.galleryImageUrls.trim(),
+        videoUrl: productDraft.videoUrl.trim(),
         nationwideDelivery: productDraft.nationwideDelivery,
-        manchesterDelivery: productDraft.manchesterDelivery,
+        manchesterDelivery: false,
         collectionAvailable: productDraft.collectionAvailable,
         variants: product.variants.map((variant) => {
           const savedVariant = nextVariants.find(
@@ -939,10 +973,13 @@ function AdminPage() {
         slug: productSlug,
         description: newProductDraft.description.trim(),
         category: newProductDraft.category.trim(),
-        imageKey: "",
+        imageKey: normalizeOptionalText(newProductDraft.imageKey),
+        imageAltText: normalizeOptionalText(newProductDraft.imageAltText),
+        galleryImageUrls: normalizeOptionalText(newProductDraft.galleryImageUrls),
+        videoUrl: normalizeOptionalText(newProductDraft.videoUrl),
         isActive: newProductDraft.isActive,
         nationwideDelivery: newProductDraft.nationwideDelivery,
-        manchesterDelivery: newProductDraft.manchesterDelivery,
+        manchesterDelivery: false,
         collectionAvailable: newProductDraft.collectionAvailable,
       } as unknown as ProductCreateInput;
 
@@ -998,10 +1035,13 @@ function AdminPage() {
         slug: productSlug,
         category: newProductDraft.category.trim(),
         description: newProductDraft.description.trim(),
-        imageKey: "",
+        imageKey: newProductDraft.imageKey.trim(),
+        imageAltText: newProductDraft.imageAltText.trim(),
+        galleryImageUrls: newProductDraft.galleryImageUrls.trim(),
+        videoUrl: newProductDraft.videoUrl.trim(),
         isActive: newProductDraft.isActive,
         nationwideDelivery: newProductDraft.nationwideDelivery,
-        manchesterDelivery: newProductDraft.manchesterDelivery,
+        manchesterDelivery: false,
         collectionAvailable: newProductDraft.collectionAvailable,
         variants: nextVariants,
       };
@@ -1226,6 +1266,65 @@ function AdminPage() {
                 </label>
               </div>
 
+              <fieldset className="admin-edit-options admin-media-options">
+                <legend>Product media</legend>
+
+                <label>
+                  <span>Main image URL or asset path</span>
+                  <input
+                    type="text"
+                    value={newProductDraft.imageKey}
+                    disabled={isCreatingProduct}
+                    placeholder="https://... or /src/assets/hero.png"
+                    onChange={(event) =>
+                      updateNewProductDraft("imageKey", event.target.value)
+                    }
+                  />
+                </label>
+
+                <label>
+                  <span>Image alt text</span>
+                  <input
+                    type="text"
+                    value={newProductDraft.imageAltText}
+                    disabled={isCreatingProduct}
+                    placeholder="Describe the product photo"
+                    onChange={(event) =>
+                      updateNewProductDraft("imageAltText", event.target.value)
+                    }
+                  />
+                </label>
+
+                <label>
+                  <span>Gallery image URLs</span>
+                  <textarea
+                    value={newProductDraft.galleryImageUrls}
+                    disabled={isCreatingProduct}
+                    rows={4}
+                    placeholder="One image URL per line"
+                    onChange={(event) =>
+                      updateNewProductDraft(
+                        "galleryImageUrls",
+                        event.target.value,
+                      )
+                    }
+                  />
+                </label>
+
+                <label>
+                  <span>Short video URL</span>
+                  <input
+                    type="text"
+                    value={newProductDraft.videoUrl}
+                    disabled={isCreatingProduct}
+                    placeholder="https://.../video.mp4"
+                    onChange={(event) =>
+                      updateNewProductDraft("videoUrl", event.target.value)
+                    }
+                  />
+                </label>
+              </fieldset>
+
               <fieldset className="admin-edit-options">
                 <legend>Status and delivery</legend>
 
@@ -1254,21 +1353,6 @@ function AdminPage() {
                     }
                   />
                   <span>Nationwide delivery</span>
-                </label>
-
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={newProductDraft.manchesterDelivery}
-                    disabled={isCreatingProduct}
-                    onChange={(event) =>
-                      updateNewProductDraft(
-                        "manchesterDelivery",
-                        event.target.checked,
-                      )
-                    }
-                  />
-                  <span>Manchester delivery</span>
                 </label>
 
                 <label>
@@ -1456,16 +1540,6 @@ function AdminPage() {
                     }
                   >
                     Nationwide
-                  </span>
-
-                  <span
-                    className={
-                      product.manchesterDelivery
-                        ? "admin-option-enabled"
-                        : "admin-option-disabled"
-                    }
-                  >
-                    Manchester
                   </span>
 
                   <span
@@ -1703,6 +1777,68 @@ function AdminPage() {
                       </label>
                     </div>
 
+                    <fieldset className="admin-edit-options admin-media-options">
+                      <legend>Product media</legend>
+
+                      <label>
+                        <span>Main image URL or asset path</span>
+                        <input
+                          type="text"
+                          value={productDraft.imageKey}
+                          disabled={savingProductId === product.id}
+                          placeholder="https://... or /src/assets/hero.png"
+                          onChange={(event) =>
+                            updateProductDraft("imageKey", event.target.value)
+                          }
+                        />
+                      </label>
+
+                      <label>
+                        <span>Image alt text</span>
+                        <input
+                          type="text"
+                          value={productDraft.imageAltText}
+                          disabled={savingProductId === product.id}
+                          placeholder="Describe the product photo"
+                          onChange={(event) =>
+                            updateProductDraft(
+                              "imageAltText",
+                              event.target.value,
+                            )
+                          }
+                        />
+                      </label>
+
+                      <label>
+                        <span>Gallery image URLs</span>
+                        <textarea
+                          value={productDraft.galleryImageUrls}
+                          disabled={savingProductId === product.id}
+                          rows={4}
+                          placeholder="One image URL per line"
+                          onChange={(event) =>
+                            updateProductDraft(
+                              "galleryImageUrls",
+                              event.target.value,
+                            )
+                          }
+                        />
+                      </label>
+
+                      <label>
+                        <span>Short video URL</span>
+                        <input
+                          type="text"
+                          value={productDraft.videoUrl}
+                          disabled={savingProductId === product.id}
+                          placeholder="https://.../video.mp4"
+                          onChange={(event) =>
+                            updateProductDraft("videoUrl", event.target.value)
+                          }
+                        />
+                      </label>
+                    </fieldset>
+
                     <fieldset className="admin-edit-options">
                       <legend>Delivery options</legend>
 
@@ -1719,21 +1855,6 @@ function AdminPage() {
                           }
                         />
                         <span>Nationwide delivery</span>
-                      </label>
-
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={productDraft.manchesterDelivery}
-                          disabled={savingProductId === product.id}
-                          onChange={(event) =>
-                            updateProductDraft(
-                              "manchesterDelivery",
-                              event.target.checked,
-                            )
-                          }
-                        />
-                        <span>Manchester delivery</span>
                       </label>
 
                       <label>

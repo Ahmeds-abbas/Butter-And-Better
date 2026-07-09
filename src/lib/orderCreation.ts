@@ -18,6 +18,11 @@ type OrderItemDeleteInput = Parameters<
 
 type OrderAuthMode = "userPool" | "iam";
 
+type CheckoutCustomerProfile = {
+  id: string;
+  availableRewards: number;
+};
+
 export type CreatedOrderSummary = {
   id: string;
   orderNumber: string;
@@ -81,7 +86,9 @@ async function getOrderAuthMode(): Promise<OrderAuthMode> {
   return "iam";
 }
 
-async function getSignedInCustomerProfileId(authMode: OrderAuthMode) {
+async function getSignedInCustomerProfile(
+  authMode: OrderAuthMode,
+): Promise<CheckoutCustomerProfile | null> {
   if (authMode !== "userPool") {
     return null;
   }
@@ -99,7 +106,10 @@ async function getSignedInCustomerProfileId(authMode: OrderAuthMode) {
   );
 
   if (existingProfile.data) {
-    return userSub;
+    return {
+      id: userSub,
+      availableRewards: existingProfile.data.availableRewards,
+    };
   }
 
   if (existingProfile.errors?.length) {
@@ -124,7 +134,10 @@ async function getSignedInCustomerProfileId(authMode: OrderAuthMode) {
     throw new Error("Could not prepare your loyalty profile for checkout.");
   }
 
-  return userSub;
+  return {
+    id: userSub,
+    availableRewards: createProfile.data.availableRewards,
+  };
 }
 
 async function verifyBasketEligibility(
@@ -209,9 +222,24 @@ export async function createCheckoutOrder(
   }
 
   const authMode = await getOrderAuthMode();
-  const customerProfileId = await getSignedInCustomerProfileId(authMode);
+  const customerProfile = await getSignedInCustomerProfile(authMode);
+  const redeemReward = Boolean(formData.redeemReward);
+
+  if (redeemReward && !customerProfile) {
+    throw new Error("Sign in to redeem loyalty rewards.");
+  }
+
+  if (redeemReward && customerProfile.availableRewards < 1) {
+    throw new Error("You do not have a loyalty reward available.");
+  }
+
+  const customerProfileId = customerProfile?.id ?? null;
   const fulfilmentMethod = formData.fulfilmentMethod;
-  const totals = calculateCheckoutTotals(basketItems, fulfilmentMethod);
+  const totals = calculateCheckoutTotals(
+    basketItems,
+    fulfilmentMethod,
+    redeemReward,
+  );
 
   if (basketItems.length === 0 || totals.totalInPence < 0) {
     throw new Error("Your basket could not be checked out.");

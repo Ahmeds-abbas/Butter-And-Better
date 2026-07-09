@@ -12,6 +12,7 @@ export type CheckoutFormData = {
   city: string;
   postcode: string;
   fulfilmentMethod: FulfilmentMethod | "";
+  redeemReward: boolean;
   orderNotes: string;
 };
 

@@ -14,8 +14,8 @@ function OrderConfirmation({ order, fulfilmentLabel }: OrderConfirmationProps) {
         <p className="eyebrow">Order received</p>
         <h1>Thanks, {order.firstName}</h1>
         <p>
-          Your order request has been received. Payment integration is not yet
-          active, so this order is not paid or confirmed by the bakery yet.
+          Your order request has been received. Payment is completed securely
+          through Stripe before the order is confirmed as paid.
         </p>
 
         <dl className="order-confirmation-details">
@@ -48,8 +48,8 @@ function OrderConfirmation({ order, fulfilmentLabel }: OrderConfirmationProps) {
         </dl>
 
         <p>
-          Next step: Stripe payment will be connected later. For now, the order
-          appears in the admin dashboard as pending payment.
+          Next step: continue to Stripe Checkout. Orders remain pending until
+          payment is confirmed.
         </p>
 
         <Link to="/shop" className="primary-button">

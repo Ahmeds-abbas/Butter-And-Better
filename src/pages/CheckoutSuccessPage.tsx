@@ -15,9 +15,8 @@ type CheckoutSessionStatus = {
 };
 
 const fulfilmentLabels: Record<string, string> = {
-  nationwide: "Nationwide delivery",
-  manchester: "Manchester same-day",
-  collection: "Collection",
+  nationwide: "UK tracked delivery",
+  collection: "Pickup",
 };
 
 function CheckoutSuccessPage() {
@@ -121,6 +120,16 @@ function CheckoutSuccessPage() {
                     : "Not available"}
                 </dd>
               </div>
+
+              {sessionStatus.fulfilmentMethod === "collection" &&
+                sessionStatus.paymentStatus === "paid" && (
+                  <div>
+                    <dt>Pickup details</dt>
+                    <dd>
+                      Butter & Better will confirm your pickup time by email.
+                    </dd>
+                  </div>
+                )}
 
               <div>
                 <dt>Total</dt>

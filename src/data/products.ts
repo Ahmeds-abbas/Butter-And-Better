@@ -7,6 +7,9 @@ export const products: Product[] = [
     description:
       "Freshly baked cookies available in original and flavoured varieties.",
     imageUrl: "/src/assets/hero.png",
+    imageAltText: "Butter & Better cookies product photo",
+    galleryImageUrls: [],
+    videoUrl: "",
     category: "Cookies",
     available: true,
     variants: [
@@ -33,7 +36,7 @@ export const products: Product[] = [
     ],
     deliveryOptions: {
       nationwide: true,
-      manchester: true,
+      manchester: false,
       collection: true,
     },
   },
@@ -43,6 +46,9 @@ export const products: Product[] = [
     description:
       "Rich handmade brownies available in original and flavoured varieties.",
     imageUrl: "/src/assets/hero.png",
+    imageAltText: "Butter & Better brownies product photo",
+    galleryImageUrls: [],
+    videoUrl: "",
     category: "Brownies",
     available: true,
     variants: [
@@ -69,7 +75,7 @@ export const products: Product[] = [
     ],
     deliveryOptions: {
       nationwide: true,
-      manchester: true,
+      manchester: false,
       collection: true,
     },
   },
@@ -79,6 +85,9 @@ export const products: Product[] = [
     description:
       "A soft brownie-cookie hybrid finished with Oreo pieces.",
     imageUrl: "/src/assets/hero.png",
+    imageAltText: "Butter & Better Oreo brookies product photo",
+    galleryImageUrls: [],
+    videoUrl: "",
     category: "Brookies",
     available: true,
     variants: [
@@ -90,7 +99,7 @@ export const products: Product[] = [
     ],
     deliveryOptions: {
       nationwide: true,
-      manchester: true,
+      manchester: false,
       collection: true,
     },
   },
@@ -100,6 +109,9 @@ export const products: Product[] = [
     description:
       "Soft, rich blondies with a sweet buttery flavour.",
     imageUrl: "/src/assets/hero.png",
+    imageAltText: "Butter & Better blondies product photo",
+    galleryImageUrls: [],
+    videoUrl: "",
     category: "Blondies",
     available: true,
     variants: [
@@ -111,7 +123,7 @@ export const products: Product[] = [
     ],
     deliveryOptions: {
       nationwide: true,
-      manchester: true,
+      manchester: false,
       collection: true,
     },
   },
@@ -121,6 +133,9 @@ export const products: Product[] = [
     description:
       "Creamy banana pudding available in classic and flavoured options.",
     imageUrl: "/src/assets/hero.png",
+    imageAltText: "Butter & Better banana pudding product photo",
+    galleryImageUrls: [],
+    videoUrl: "",
     category: "Banana Pudding",
     available: true,
     variants: [
@@ -137,7 +152,7 @@ export const products: Product[] = [
     ],
     deliveryOptions: {
       nationwide: false,
-      manchester: true,
+      manchester: false,
       collection: true,
     },
   },

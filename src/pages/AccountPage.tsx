@@ -194,10 +194,28 @@ function AccountLoyaltySection() {
 function AccountPage() {
   return (
     <main className="page">
-      <section className="page-header">
-        <p className="eyebrow">Your account</p>
-        <h1>Sign in or create an account</h1>
-        <p>Sign in to earn Butter & Better stamps and rewards.</p>
+      <section className="page-header account-hero">
+        <div>
+          <p className="eyebrow">Your account</p>
+          <h1>Sign in, earn stamps, redeem rewards.</h1>
+          <p>
+            Earn 1 stamp per GBP 5 spent, keep leftover spend toward the next
+            stamp, and redeem 8 stamps for GBP 5 off.
+          </p>
+        </div>
+        <div className="loyalty-preview-card account-stamp-preview">
+          {Array.from({ length: 8 }, (_, index) => (
+            <span
+              key={index}
+              className={`loyalty-preview-stamp ${
+                index < 4 ? "loyalty-preview-stamp-filled" : ""
+              }`}
+            >
+              B&B
+            </span>
+          ))}
+          <strong>Your stamp card lives here</strong>
+        </div>
       </section>
 
       <Authenticator loginMechanisms={["email"]}>

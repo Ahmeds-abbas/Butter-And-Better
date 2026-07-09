@@ -19,6 +19,7 @@ import {
 import {
   calculateLoyaltySettlement,
   formatLoyaltyCurrency,
+  rewardValueInPence,
   stampSpendInPence,
   stampsPerReward,
 } from "../lib/loyalty";
@@ -38,6 +39,7 @@ const initialCheckoutFormData: CheckoutFormData = {
   city: "",
   postcode: "",
   fulfilmentMethod: "",
+  redeemReward: false,
   orderNotes: "",
 };
 
@@ -281,6 +283,8 @@ function CheckoutPage() {
   const selectedFulfilmentOption = availableFulfilmentOptions.find(
     (option) => option.value === effectiveFulfilmentMethod,
   );
+  const canRedeemReward = (loyaltyProfile?.availableRewards ?? 0) > 0;
+  const effectiveRedeemReward = canRedeemReward && formData.redeemReward;
   const basketSubtotalInPence = useMemo(
     () =>
       basketItems.reduce(
@@ -296,18 +300,36 @@ function CheckoutPage() {
     }
 
     try {
-      return calculateCheckoutTotals(basketItems, effectiveFulfilmentMethod);
+      return calculateCheckoutTotals(
+        basketItems,
+        effectiveFulfilmentMethod,
+        effectiveRedeemReward,
+      );
     } catch {
       return null;
     }
-  }, [basketItems, effectiveFulfilmentMethod]);
+  }, [basketItems, effectiveFulfilmentMethod, effectiveRedeemReward]);
   const estimatedLoyalty = useMemo(() => {
     if (!loyaltyProfile) {
       return null;
     }
 
-    return calculateLoyaltySettlement(loyaltyProfile, basketSubtotalInPence);
-  }, [basketSubtotalInPence, loyaltyProfile]);
+    return calculateLoyaltySettlement(
+      {
+        ...loyaltyProfile,
+        availableRewards:
+          effectiveRedeemReward
+            ? loyaltyProfile.availableRewards - 1
+            : loyaltyProfile.availableRewards,
+      },
+      checkoutTotals?.loyaltySpendInPence ?? basketSubtotalInPence,
+    );
+  }, [
+    basketSubtotalInPence,
+    checkoutTotals?.loyaltySpendInPence,
+    effectiveRedeemReward,
+    loyaltyProfile,
+  ]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -416,7 +438,11 @@ function CheckoutPage() {
     const { name, value } = event.target;
     const fieldName = name as CheckoutFieldName;
     const nextValue =
-      fieldName === "postcode" ? value.toUpperCase() : value;
+      fieldName === "redeemReward" && event.target instanceof HTMLInputElement
+        ? event.target.checked
+        : fieldName === "postcode"
+          ? value.toUpperCase()
+          : value;
 
     setFormData((currentFormData) => ({
       ...currentFormData,
@@ -505,7 +531,11 @@ function CheckoutPage() {
     }
 
     try {
-      calculateCheckoutTotals(basketItems, formData.fulfilmentMethod);
+      calculateCheckoutTotals(
+        basketItems,
+        formData.fulfilmentMethod,
+        effectiveRedeemReward,
+      );
     } catch (error) {
       setOrderCreationError(
         error instanceof Error
@@ -520,7 +550,13 @@ function CheckoutPage() {
     setOrderMessage("");
 
     try {
-      const nextOrder = await createCheckoutOrder(formData, basketItems);
+      const nextOrder = await createCheckoutOrder(
+        {
+          ...formData,
+          redeemReward: effectiveRedeemReward,
+        },
+        basketItems,
+      );
       const sessionResponse = await dataClient.mutations.createCheckoutSession(
         {
           orderId: nextOrder.id,
@@ -1040,6 +1076,17 @@ function CheckoutPage() {
                         )}
                       </strong>
                     </div>
+                    {checkoutTotals.rewardDiscountInPence > 0 && (
+                      <div>
+                        <span>Loyalty reward</span>
+                        <strong>
+                          -
+                          {formatCurrencyFromPence(
+                            checkoutTotals.rewardDiscountInPence,
+                          )}
+                        </strong>
+                      </div>
+                    )}
                     <div>
                       <span>Payment status</span>
                       <strong>Pending</strong>
@@ -1117,6 +1164,15 @@ function CheckoutPage() {
             </span>
           </div>
 
+          {checkoutTotals && checkoutTotals.rewardDiscountInPence > 0 && (
+            <div className="summary-row">
+              <span>Loyalty reward</span>
+              <span>
+                -{formatCurrencyFromPence(checkoutTotals.rewardDiscountInPence)}
+              </span>
+            </div>
+          )}
+
           <div className="summary-total">
             <span>Estimated total</span>
             <strong>
@@ -1151,6 +1207,21 @@ function CheckoutPage() {
                   {stampsPerReward} stamps and{" "}
                   {loyaltyProfile?.availableRewards ?? 0} available rewards.
                 </p>
+                {canRedeemReward && (
+                  <label>
+                    <input
+                      type="checkbox"
+                      name="redeemReward"
+                      checked={effectiveRedeemReward}
+                      onChange={updateFormData}
+                    />
+                    <span>
+                      Redeem 1 reward for{" "}
+                      {formatCurrencyFromPence(rewardValueInPence)} off this
+                      order.
+                    </span>
+                  </label>
+                )}
                 <p>
                   This order is estimated to earn{" "}
                   {estimatedLoyalty.stampsEarned} stamp
@@ -1166,8 +1237,8 @@ function CheckoutPage() {
                   stamp.
                 </p>
                 <p>
-                  Reward redemption is not available yet; rewards will remain
-                  on your account until redemption is safely implemented.
+                  Reward discounts are applied at Stripe Checkout and settled
+                  only after payment is confirmed.
                 </p>
               </>
             )}

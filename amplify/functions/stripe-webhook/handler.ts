@@ -192,11 +192,15 @@ async function settleLoyaltyForPaidOrder(order: Schema["Order"]["type"]) {
     0,
     order.subtotalInPence - order.rewardDiscountInPence,
   );
+  const redeemedRewards = order.rewardDiscountInPence > 0 ? 1 : 0;
   const nextLoyalty = calculateLoyaltySettlement(
     {
       loyaltyStamps: profileResponse.data.loyaltyStamps,
       loyaltyRemainderInPence: profileResponse.data.loyaltyRemainderInPence,
-      availableRewards: profileResponse.data.availableRewards,
+      availableRewards: Math.max(
+        0,
+        profileResponse.data.availableRewards - redeemedRewards,
+      ),
     },
     productSpendInPence,
   );

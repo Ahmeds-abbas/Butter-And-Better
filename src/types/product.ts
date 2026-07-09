@@ -22,6 +22,9 @@ export type Product = {
   name: string;
   description: string;
   imageUrl: string;
+  imageAltText: string;
+  galleryImageUrls: string[];
+  videoUrl: string;
   category: ProductCategory;
   available: boolean;
   variants: ProductVariant[];

@@ -62,7 +62,6 @@ function formatStatus(value: string) {
 function formatFulfilmentMethod(value: string) {
   const labels: Record<string, string> = {
     nationwide: "Nationwide delivery",
-    manchester: "Manchester same-day",
     collection: "Collection",
   };
 

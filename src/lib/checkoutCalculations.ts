@@ -1,5 +1,6 @@
 import type { BasketItem } from "../types/basket";
 import type { FulfilmentMethod } from "../types/checkout";
+import { rewardValueInPence } from "./loyalty";
 
 export type CheckoutTotals = {
   subtotalInPence: number;
@@ -27,6 +28,7 @@ function poundsToPence(value: number) {
 export function calculateCheckoutTotals(
   basketItems: BasketItem[],
   fulfilmentMethod: FulfilmentMethod,
+  redeemReward = false,
 ): CheckoutTotals {
   const lineItems = basketItems.map((basketItem) => {
     const unitPriceInPence = poundsToPence(basketItem.unitPrice);
@@ -50,8 +52,14 @@ export function calculateCheckoutTotals(
     (total, item) => total + item.lineTotalInPence,
     0,
   );
-  const rewardDiscountInPence = 0;
   const deliveryFeeInPence = deliveryFeesInPence[fulfilmentMethod];
+  const rewardDiscountInPence = redeemReward
+    ? Math.min(rewardValueInPence, subtotalInPence + deliveryFeeInPence)
+    : 0;
+  const loyaltySpendInPence = Math.max(
+    0,
+    subtotalInPence - rewardDiscountInPence,
+  );
   const totalInPence = Math.max(
     0,
     subtotalInPence + deliveryFeeInPence - rewardDiscountInPence,
@@ -61,7 +69,7 @@ export function calculateCheckoutTotals(
     subtotalInPence,
     deliveryFeeInPence,
     rewardDiscountInPence,
-    loyaltySpendInPence: subtotalInPence,
+    loyaltySpendInPence,
     stampsEarned: 0,
     totalInPence,
     lineItems,

@@ -33,6 +33,10 @@ function BasketPage() {
         <div>
           <p className="eyebrow">Your order</p>
           <h1>Shopping basket</h1>
+          <p>
+            Review your treats before choosing free pickup or UK tracked
+            delivery at checkout.
+          </p>
         </div>
 
         <button
@@ -57,7 +61,7 @@ function BasketPage() {
               <div className="basket-item-details">
                 <h2>{item.productName}</h2>
                 <p>{item.variantName}</p>
-                <p>£{item.unitPrice.toFixed(2)} each</p>
+                <p>GBP {item.unitPrice.toFixed(2)} each</p>
 
                 <button
                   type="button"
@@ -94,7 +98,7 @@ function BasketPage() {
                 </div>
 
                 <strong>
-                  £{(item.unitPrice * item.quantity).toFixed(2)}
+                  GBP {(item.unitPrice * item.quantity).toFixed(2)}
                 </strong>
               </div>
             </article>
@@ -106,18 +110,28 @@ function BasketPage() {
 
           <div className="summary-row">
             <span>Subtotal</span>
-            <strong>£{basketSubtotal.toFixed(2)}</strong>
+            <strong>GBP {basketSubtotal.toFixed(2)}</strong>
           </div>
 
           <div className="summary-row">
-            <span>Delivery</span>
-            <span>Calculated at checkout</span>
+            <span>Pickup</span>
+            <span>Free</span>
+          </div>
+
+          <div className="summary-row">
+            <span>UK tracked delivery</span>
+            <span>GBP 2.99 if eligible</span>
           </div>
 
           <div className="summary-total">
             <span>Estimated total</span>
-            <strong>£{basketSubtotal.toFixed(2)}</strong>
+            <strong>GBP {basketSubtotal.toFixed(2)}</strong>
           </div>
+
+          <p className="basket-summary-note">
+            Delivery availability is checked against every basket item before
+            payment.
+          </p>
 
           <Link to="/checkout" className="checkout-button">
             Continue to checkout

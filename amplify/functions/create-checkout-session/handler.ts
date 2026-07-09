@@ -17,6 +17,7 @@ const { resourceConfig, libraryOptions } =
 Amplify.configure(resourceConfig, libraryOptions);
 
 const client = generateClient<Schema>();
+const loyaltyRewardValueInPence = 500;
 
 function createOrderUpdateInput(
   order: Schema["Order"]["type"],
@@ -111,6 +112,30 @@ export const handler: Schema["createCheckoutSession"]["functionHandler"] =
       calculatedTotal !== order.totalInPence
     ) {
       throw new Error("Order totals do not match stored order items.");
+    }
+
+    if (order.rewardDiscountInPence > 0) {
+      if (order.rewardDiscountInPence !== loyaltyRewardValueInPence) {
+        throw new Error("Invalid loyalty reward discount.");
+      }
+
+      if (!order.customerProfileId) {
+        throw new Error(
+          "Loyalty rewards can only be redeemed by signed-in customers.",
+        );
+      }
+
+      const profileResponse = await client.models.CustomerProfile.get({
+        id: order.customerProfileId,
+      });
+
+      if (
+        profileResponse.errors?.length ||
+        !profileResponse.data ||
+        profileResponse.data.availableRewards < 1
+      ) {
+        throw new Error("No loyalty reward is available for this order.");
+      }
     }
 
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =

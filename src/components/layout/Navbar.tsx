@@ -41,6 +41,19 @@ function Navbar({ basketItemCount }: NavbarProps) {
   return (
     <>
       <header className="navbar">
+        <button
+          type="button"
+          className="mobile-menu-button nav-menu-button"
+          aria-expanded={menuOpen}
+          aria-controls="mobile-navigation"
+          aria-label={
+            menuOpen ? "Close navigation menu" : "Open navigation menu"
+          }
+          onClick={() => setMenuOpen((current) => !current)}
+        >
+          {menuOpen ? "Close" : "Menu"}
+        </button>
+
         <Link to="/" className="brand">
           Butter & Better
         </Link>
@@ -62,19 +75,6 @@ function Navbar({ basketItemCount }: NavbarProps) {
           <Link to="/basket" className="basket-button">
             Basket ({basketItemCount})
           </Link>
-
-          <button
-            type="button"
-            className="mobile-menu-button"
-            aria-expanded={menuOpen}
-            aria-controls="mobile-navigation"
-            aria-label={
-              menuOpen ? "Close navigation menu" : "Open navigation menu"
-            }
-            onClick={() => setMenuOpen((current) => !current)}
-          >
-            {menuOpen ? "Close" : "Menu"}
-          </button>
         </div>
       </header>
 

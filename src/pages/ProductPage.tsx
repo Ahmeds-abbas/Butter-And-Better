@@ -4,7 +4,11 @@ import { Link, useParams } from "react-router-dom";
 
 import { useBasket } from "../hooks/useBasket";
 import { dataClient } from "../lib/amplifyClient";
-import { getProductImageUrl } from "../lib/productImages";
+import {
+  getProductImageAltText,
+  getProductImageUrl,
+  parseProductGalleryImages,
+} from "../lib/productImages";
 import type { Product } from "../types/product";
 
 type ProductReadAuthMode = "userPool" | "iam";
@@ -107,6 +111,14 @@ function ProductPage() {
           name: backendProduct.name,
           description: backendProduct.description ?? "",
           imageUrl: getProductImageUrl(backendProduct.imageKey),
+          imageAltText: getProductImageAltText(
+            backendProduct.imageAltText,
+            backendProduct.name,
+          ),
+          galleryImageUrls: parseProductGalleryImages(
+            backendProduct.galleryImageUrls,
+          ),
+          videoUrl: backendProduct.videoUrl ?? "",
           category: backendProduct.category as Product["category"],
           available: backendProduct.isActive,
           variants: variantResponse.data
@@ -234,11 +246,36 @@ function ProductPage() {
   return (
     <main className="page">
       <section className="product-detail">
-        <img
-          src={product.imageUrl}
-          alt={product.name}
-          className="product-detail-image"
-        />
+        <div className="product-detail-media">
+          <img
+            src={product.imageUrl}
+            alt={product.imageAltText}
+            className="product-detail-image"
+          />
+          {product.galleryImageUrls.length > 0 && (
+            <div className="product-gallery" aria-label="Product gallery">
+              {product.galleryImageUrls.map((galleryImageUrl, index) => (
+                <img
+                  key={galleryImageUrl}
+                  src={galleryImageUrl}
+                  alt={`${product.imageAltText} gallery image ${index + 1}`}
+                />
+              ))}
+            </div>
+          )}
+          {product.videoUrl && (
+            <div className="product-video">
+              <video
+                controls
+                playsInline
+                preload="metadata"
+                src={product.videoUrl}
+              >
+                <track kind="captions" />
+              </video>
+            </div>
+          )}
+        </div>
 
         <div className="product-detail-content">
           <p className="eyebrow">{product.category}</p>
@@ -246,6 +283,17 @@ function ProductPage() {
           <h1>{product.name}</h1>
 
           <p className="product-detail-description">{product.description}</p>
+
+          <div className="product-detail-badges">
+            <span className="product-badge">
+              {product.deliveryOptions.nationwide
+                ? "Delivery available"
+                : "Pickup only"}
+            </span>
+            <span className="product-badge product-badge-light">
+              Pickup available
+            </span>
+          </div>
 
           <fieldset className="variant-selector">
             <legend>Choose an option</legend>
@@ -272,7 +320,7 @@ function ProductPage() {
 
                 <span>{variant.name}</span>
 
-                <strong>£{variant.price.toFixed(2)}</strong>
+                <strong>GBP {variant.price.toFixed(2)}</strong>
               </label>
             ))}
           </fieldset>
@@ -314,7 +362,7 @@ function ProductPage() {
 
           {selectedVariant && (
             <p className="selected-total">
-              Total: £{(selectedVariant.price * quantity).toFixed(2)}
+              Total: GBP {(selectedVariant.price * quantity).toFixed(2)}
             </p>
           )}
 
