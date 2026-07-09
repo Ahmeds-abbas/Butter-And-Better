@@ -73,6 +73,26 @@ function requireSafeOrigin(origin: string) {
   return parsedOrigin.origin;
 }
 
+function getCallerSub(identity: unknown) {
+  if (!identity || typeof identity !== "object") {
+    return null;
+  }
+
+  const maybeIdentity = identity as {
+    claims?: Record<string, unknown>;
+    sub?: unknown;
+  };
+  const claimSub = maybeIdentity.claims?.sub;
+
+  if (typeof claimSub === "string" && claimSub.length > 0) {
+    return claimSub;
+  }
+
+  return typeof maybeIdentity.sub === "string" && maybeIdentity.sub.length > 0
+    ? maybeIdentity.sub
+    : null;
+}
+
 export const handler: Schema["createCheckoutSession"]["functionHandler"] =
   async (event) => {
     const { orderId, checkoutAccessToken, origin } = event.arguments;
@@ -85,6 +105,11 @@ export const handler: Schema["createCheckoutSession"]["functionHandler"] =
     }
 
     const order = orderResponse.data;
+    const callerSub = getCallerSub(event.identity);
+
+    if (order.customerProfileId && order.customerProfileId !== callerSub) {
+      throw new Error("Order customer profile access was denied.");
+    }
 
     if (order.checkoutAccessToken !== checkoutAccessToken) {
       throw new Error("Order payment access was denied.");

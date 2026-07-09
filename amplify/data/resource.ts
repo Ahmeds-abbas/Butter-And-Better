@@ -172,7 +172,7 @@ const schema = a.schema({
       availableRewards: a.integer().required(),
     })
     .authorization((allow) => [
-      allow.owner(),
+      allow.owner().to(["create", "read"]),
       allow.group("Admin"),
     ]),
 }).authorization((allow) => [
