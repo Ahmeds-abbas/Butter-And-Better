@@ -98,6 +98,44 @@ For a deployed Amplify branch, configure the same secret names for that branch i
 npx.cmd ampx pipeline-deploy --branch <branch-name> --app-id <amplify-app-id>
 ```
 
+## Staging Deployment
+
+Staging should continue to use Stripe test mode and the Resend test sender unless a verified email domain has been configured.
+
+Required Amplify secrets for the staging branch:
+
+- `STRIPE_SECRET_KEY`: Stripe test secret key, for example `sk_test_...`
+- `STRIPE_WEBHOOK_SECRET`: Stripe webhook signing secret for the staging webhook destination
+- `EMAIL_API_KEY`: Resend API key
+- `EMAIL_FROM_ADDRESS`: Resend test sender or verified sender address
+- `ADMIN_NOTIFICATION_EMAIL`: bakery/admin notification recipient
+
+Deployment checklist:
+
+1. Create or select the Amplify staging branch.
+2. Configure the required secrets for that branch in Amplify.
+3. Deploy the backend and frontend:
+
+   ```powershell
+   npx.cmd ampx pipeline-deploy --branch staging --app-id <amplify-app-id>
+   ```
+
+4. After deploy, get the `stripeWebhookUrl` custom output from Amplify.
+5. In Stripe test mode, add a webhook destination pointing to that `stripeWebhookUrl`.
+6. Select the checkout/payment events used by the app, including:
+   - `checkout.session.completed`
+   - `checkout.session.async_payment_succeeded`
+   - `checkout.session.async_payment_failed`
+   - `payment_intent.payment_failed`
+   - `charge.refunded`
+7. Copy the Stripe webhook signing secret into the staging `STRIPE_WEBHOOK_SECRET`.
+8. Redeploy/restart the staging backend after changing secrets.
+9. Run a Stripe test checkout from the deployed staging URL.
+
+Checkout redirect URLs are environment-aware. The browser sends its current `window.location.origin` to the backend, so local development redirects back to `localhost`, while staging redirects back to the deployed staging domain. Do not hardcode localhost or production domains in the checkout flow.
+
+`amplify_outputs.json` is generated per environment and is intentionally ignored by git. Local sandbox output should not be committed; Amplify Hosting/pipeline deployment provides environment-specific outputs for the deployed branch.
+
 Stripe local test flow:
 
 1. Create or open a Stripe test account.
