@@ -174,3 +174,4 @@ Payment notes:
 - Order notification emails are sent only after the Stripe webhook verifies a successful paid payment.
 - Email sending uses Amplify secrets and is skipped/retried separately from payment state if delivery fails.
 - Loyalty reversal on refunds is deferred and must be handled manually/admin-side until implemented.
+-Push?
