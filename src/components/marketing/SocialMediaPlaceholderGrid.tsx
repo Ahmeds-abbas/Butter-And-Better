@@ -1,44 +1,36 @@
-type VideoMoment = {
+type PhotoMoment = {
   id: string;
   title: string;
-  videoUrl: string;
-  posterUrl: string;
+  imageUrl: string;
+  imageAltText: string;
 };
 
 type SocialMediaPlaceholderGridProps = {
-  moments: VideoMoment[];
+  moments: PhotoMoment[];
 };
 
-const placeholderMoments = ["Mixing", "Fresh bake reveal", "Packing orders"];
+const placeholderMoments = ["fresh bakes", "sweet details", "beautifully boxed"];
 
 function SocialMediaPlaceholderGrid({ moments }: SocialMediaPlaceholderGridProps) {
   return (
-    <section className="video-moments-section home-content-block" aria-labelledby="video-moments-title">
+    <section className="video-moments-section home-content-block" aria-labelledby="photo-moments-title">
       <div className="section-heading">
         <p className="eyebrow">Fresh from the kitchen</p>
-        <h2 id="video-moments-title">Video moments</h2>
+        <h2 id="photo-moments-title">In the kitchen</h2>
       </div>
 
       <div className="video-moments-row">
         {moments.length > 0
           ? moments.map((moment) => (
               <article key={moment.id} className="video-moment-card">
-                <video
-                  controls
-                  playsInline
-                  preload="metadata"
-                  poster={moment.posterUrl}
-                  src={moment.videoUrl}
-                >
-                  <track kind="captions" />
-                </video>
+                <img src={moment.imageUrl} alt={moment.imageAltText} />
                 <h3>{moment.title}</h3>
               </article>
             ))
           : placeholderMoments.map((title) => (
               <article key={title} className="video-moment-card video-moment-placeholder">
-                <div role="img" aria-label={`${title} video coming soon`}>
-                  <span>Video coming soon</span>
+                <div role="img" aria-label={`${title} photo coming soon`}>
+                  <span>Photo coming soon</span>
                 </div>
                 <h3>{title}</h3>
               </article>

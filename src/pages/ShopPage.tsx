@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { Check, ChevronDown, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchAuthSession } from "aws-amplify/auth";
 import AnnouncementTicker from "../components/marketing/AnnouncementTicker";
 import ProductCard from "../components/products/ProductCard";
@@ -58,6 +59,9 @@ function ShopPage() {
   const [loadError, setLoadError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
+  const categoryMenuRef = useRef<HTMLDivElement | null>(null);
+  const categoryTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     let isCancelled = false;
@@ -163,6 +167,36 @@ function ShopPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isCategoryMenuOpen) {
+      return;
+    }
+
+    function closeCategoryMenu(event: PointerEvent) {
+      if (
+        event.target instanceof Node &&
+        !categoryMenuRef.current?.contains(event.target)
+      ) {
+        setIsCategoryMenuOpen(false);
+      }
+    }
+
+    function closeCategoryMenuOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsCategoryMenuOpen(false);
+        categoryTriggerRef.current?.focus();
+      }
+    }
+
+    document.addEventListener("pointerdown", closeCategoryMenu);
+    document.addEventListener("keydown", closeCategoryMenuOnEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", closeCategoryMenu);
+      document.removeEventListener("keydown", closeCategoryMenuOnEscape);
+    };
+  }, [isCategoryMenuOpen]);
+
   const categories = useMemo(
     () => ["All", ...new Set(products.map((product) => product.category))],
     [products],
@@ -194,6 +228,7 @@ function ShopPage() {
   function clearFilters() {
     setSearchTerm("");
     setSelectedCategory("All");
+    setIsCategoryMenuOpen(false);
   }
 
   return (
@@ -247,26 +282,64 @@ function ShopPage() {
               />
             </label>
 
-            <div className="shop-category-filter">
-              <span>Category</span>
+            <div className="shop-category-filter" ref={categoryMenuRef}>
+              <span id="shop-category-label">Category</span>
+              <button
+                ref={categoryTriggerRef}
+                type="button"
+                className="shop-category-trigger"
+                aria-labelledby="shop-category-label shop-category-value"
+                aria-haspopup="listbox"
+                aria-expanded={isCategoryMenuOpen}
+                aria-controls="shop-category-menu"
+                onClick={() =>
+                  setIsCategoryMenuOpen((currentValue) => !currentValue)
+                }
+              >
+                <span className="shop-category-trigger-copy">
+                  <Sparkles aria-hidden="true" size={16} strokeWidth={2.2} />
+                  <span id="shop-category-value">{selectedCategory}</span>
+                </span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className="shop-category-chevron"
+                  size={19}
+                  strokeWidth={2.3}
+                />
+              </button>
 
-              <div className="category-filter-buttons">
-                {categories.map((category) => (
-                  <button
-                    key={category}
-                    type="button"
-                    className={`category-filter-button ${
-                      selectedCategory === category
-                        ? "category-filter-button-active"
-                        : ""
-                    }`}
-                    aria-pressed={selectedCategory === category}
-                    onClick={() => setSelectedCategory(category)}
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
+              {isCategoryMenuOpen && (
+                <div
+                  id="shop-category-menu"
+                  className="shop-category-menu"
+                  role="listbox"
+                  aria-labelledby="shop-category-label"
+                >
+                  {categories.map((category) => (
+                    <button
+                      key={category}
+                      type="button"
+                      role="option"
+                      aria-selected={selectedCategory === category}
+                      className={`shop-category-option ${
+                        selectedCategory === category
+                          ? "shop-category-option-selected"
+                          : ""
+                      }`}
+                      onClick={() => {
+                        setSelectedCategory(category);
+                        setIsCategoryMenuOpen(false);
+                        categoryTriggerRef.current?.focus();
+                      }}
+                    >
+                      <span>{category}</span>
+                      {selectedCategory === category && (
+                        <Check aria-hidden="true" size={17} strokeWidth={2.5} />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <p className="shop-results-count" aria-live="polite">

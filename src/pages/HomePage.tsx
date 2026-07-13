@@ -1,4 +1,5 @@
 import { fetchAuthSession } from "aws-amplify/auth";
+import { Sparkles, Star } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -133,13 +134,13 @@ function HomePage() {
   const hasHeroImage = Boolean(
     featuredProduct && !heroImage.startsWith("data:image/svg+xml"),
   );
-  const videoMoments = products
-    .filter((product) => product.videoUrl)
+  const photoMoments = products
+    .slice(0, 3)
     .map((product) => ({
       id: product.id,
       title: product.name,
-      videoUrl: product.videoUrl,
-      posterUrl: product.imageUrl,
+      imageUrl: product.imageUrl,
+      imageAltText: product.imageAltText,
     }));
 
   return (
@@ -157,7 +158,17 @@ function HomePage() {
         )}
         <div className="home-main-hero-shade" />
         <div className="home-main-hero-content">
-          <p className="hero-pill">Flavour of the Week</p>
+          <p className="hero-pill">
+            <span className="hero-pill-sparkles" aria-hidden="true">
+              <Star size={8} strokeWidth={2.2} fill="currentColor" />
+              <Sparkles size={15} strokeWidth={2.4} />
+            </span>
+            <span>Flavour of the Week</span>
+            <span className="hero-pill-sparkles" aria-hidden="true">
+              <Sparkles size={13} strokeWidth={2.4} />
+              <Star size={7} strokeWidth={2.2} fill="currentColor" />
+            </span>
+          </p>
           <h1 id="home-hero-title">
             {featuredProduct?.name ?? "Freshly baked, beautifully boxed."}
           </h1>
@@ -215,11 +226,11 @@ function HomePage() {
         )}
       </section>
 
-      <SocialMediaPlaceholderGrid moments={videoMoments} />
+      <SocialMediaPlaceholderGrid moments={photoMoments} />
 
       <section className="home-final-cta home-content-block">
         <p className="eyebrow">Butter &amp; Better</p>
-        <h2>Ready for something better?</h2>
+        <h2>ready for something better?</h2>
         <p>Browse the latest small-batch menu at butterandbetter.co.uk.</p>
         <Link to="/shop" className="primary-button">Explore Our Menu</Link>
       </section>
