@@ -3,6 +3,7 @@ import { Authenticator } from "@aws-amplify/ui-react";
 import { fetchAuthSession } from "aws-amplify/auth";
 import "@aws-amplify/ui-react/styles.css";
 import { dataClient } from "../lib/amplifyClient";
+import { formatGBP } from "../lib/currency";
 import {
   formatLoyaltyCurrency,
   stampSpendInPence,
@@ -87,7 +88,8 @@ function LoyaltyStampCard({ profile }: { profile: LoyaltyProfile }) {
       </div>
 
       <p>
-        Earn 1 stamp for every GBP 5 spent. Collect 8 stamps for a GBP 5 reward.
+        Earn 1 stamp for every {formatGBP(500)} spent. Collect 8 stamps for a{" "}
+        {formatGBP(500)} reward.
       </p>
 
       <div className="loyalty-stamp-grid" aria-label="Loyalty stamps">
@@ -138,7 +140,7 @@ function LoyaltyStampCard({ profile }: { profile: LoyaltyProfile }) {
         </div>
         <div>
           <dt>Available rewards</dt>
-          <dd>{profile.availableRewards} x GBP 5</dd>
+          <dd>{profile.availableRewards} x {formatGBP(500)}</dd>
         </div>
       </dl>
     </section>
@@ -199,8 +201,8 @@ function AccountPage() {
           <p className="eyebrow">Your account</p>
           <h1>Sign in, earn stamps, redeem rewards.</h1>
           <p>
-            Earn 1 stamp per GBP 5 spent, keep leftover spend toward the next
-            stamp, and redeem 8 stamps for GBP 5 off.
+            Earn 1 stamp per {formatGBP(500)} spent, keep leftover spend toward
+            the next stamp, and redeem 8 stamps for {formatGBP(500)} off.
           </p>
         </div>
         <div className="loyalty-preview-card account-stamp-preview">

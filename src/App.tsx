@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router-dom";
 import "./App.css";
 import ProtectedAdminRoute from "./components/auth/ProtectedAdminRoute";
 import Navbar from "./components/layout/Navbar";
+import BackToTop from "./components/layout/BackToTop";
 import AboutPage from "./pages/AboutPage";
 import AdminPage from "./pages/AdminPage";
 import ContactPage from "./pages/ContactPage";
@@ -44,6 +45,7 @@ function App() {
         />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      <BackToTop />
     </div>
   );
 }

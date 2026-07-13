@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useBasket } from "../../hooks/useBasket";
+import { formatGBPFromPounds } from "../../lib/currency";
 import { getProductImageUrl } from "../../lib/productImages";
 import type { Product } from "../../types/product";
 
@@ -66,7 +67,7 @@ function ProductCard({ product }: ProductCardProps) {
         <p className="product-description">{product.description}</p>
 
         <div className="product-card-footer">
-          <strong>From GBP {lowestPrice.toFixed(2)}</strong>
+          <strong>From {formatGBPFromPounds(lowestPrice)}</strong>
 
           <div className="product-card-actions">
             <button

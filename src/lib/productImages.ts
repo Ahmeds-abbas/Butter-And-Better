@@ -22,6 +22,10 @@ function isDirectMediaUrl(mediaReference: string) {
   );
 }
 
+function isLegacySourceAsset(mediaReference: string) {
+  return mediaReference.startsWith("/src/");
+}
+
 async function resolveStorageMediaUrl(mediaReference: string) {
   if (isDirectMediaUrl(mediaReference)) {
     return mediaReference;
@@ -35,7 +39,9 @@ async function resolveStorageMediaUrl(mediaReference: string) {
 export function getProductImageUrl(imageKey: string | null | undefined) {
   const trimmedImageKey = imageKey?.trim();
 
-  return trimmedImageKey && trimmedImageKey.length > 0
+  return trimmedImageKey &&
+    trimmedImageKey.length > 0 &&
+    !isLegacySourceAsset(trimmedImageKey)
     ? trimmedImageKey
     : fallbackProductImageUrl;
 }
@@ -45,7 +51,7 @@ export async function resolveProductImageUrl(
 ) {
   const trimmedImageKey = imageKey?.trim();
 
-  if (!trimmedImageKey) {
+  if (!trimmedImageKey || isLegacySourceAsset(trimmedImageKey)) {
     return fallbackProductImageUrl;
   }
 

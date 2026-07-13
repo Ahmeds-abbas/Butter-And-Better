@@ -44,8 +44,6 @@ export function calculateLoyaltySettlement(
 }
 
 export function formatLoyaltyCurrency(valueInPence: number) {
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format(valueInPence / 100);
+  return formatGBP(valueInPence);
 }
+import { formatGBP } from "./currency";

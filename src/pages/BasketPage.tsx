@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useBasket } from "../hooks/useBasket";
 import { getProductImageUrl } from "../lib/productImages";
+import { formatGBP, formatGBPFromPounds } from "../lib/currency";
 
 function BasketPage() {
   const {
@@ -61,7 +62,7 @@ function BasketPage() {
               <div className="basket-item-details">
                 <h2>{item.productName}</h2>
                 <p>{item.variantName}</p>
-                <p>GBP {item.unitPrice.toFixed(2)} each</p>
+                <p>{formatGBPFromPounds(item.unitPrice)} each</p>
 
                 <button
                   type="button"
@@ -98,7 +99,7 @@ function BasketPage() {
                 </div>
 
                 <strong>
-                  GBP {(item.unitPrice * item.quantity).toFixed(2)}
+                  {formatGBPFromPounds(item.unitPrice * item.quantity)}
                 </strong>
               </div>
             </article>
@@ -110,7 +111,7 @@ function BasketPage() {
 
           <div className="summary-row">
             <span>Subtotal</span>
-            <strong>GBP {basketSubtotal.toFixed(2)}</strong>
+            <strong>{formatGBPFromPounds(basketSubtotal)}</strong>
           </div>
 
           <div className="summary-row">
@@ -120,12 +121,12 @@ function BasketPage() {
 
           <div className="summary-row">
             <span>UK tracked delivery</span>
-            <span>GBP 2.99 if eligible</span>
+            <span>{formatGBP(299)} if eligible</span>
           </div>
 
           <div className="summary-total">
             <span>Estimated total</span>
-            <strong>GBP {basketSubtotal.toFixed(2)}</strong>
+            <strong>{formatGBPFromPounds(basketSubtotal)}</strong>
           </div>
 
           <p className="basket-summary-note">

@@ -1,3 +1,5 @@
+import { formatGBP } from "../lib/currency";
+
 function ContactPage() {
   return (
     <main className="page">
@@ -29,7 +31,7 @@ function ContactPage() {
           <span className="product-badge product-badge-light">Delivery</span>
           <h2>UK tracked delivery</h2>
           <p>
-            UK tracked delivery is GBP 2.99 when every product in the basket is
+            UK tracked delivery is {formatGBP(299)} when every product in the basket is
             delivery-available.
           </p>
         </article>
@@ -37,7 +39,7 @@ function ContactPage() {
           <span className="product-badge">Loyalty</span>
           <h2>Earn stamps</h2>
           <p>
-            Signed-in customers earn 1 stamp per GBP 5 spent on products after
+            Signed-in customers earn 1 stamp per {formatGBP(500)} spent on products after
             payment is confirmed.
           </p>
         </article>

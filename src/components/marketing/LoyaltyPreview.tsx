@@ -1,12 +1,14 @@
+import { formatGBP } from "../../lib/currency";
+
 function LoyaltyPreview() {
   return (
     <section className="loyalty-preview">
       <div>
         <p className="eyebrow">Loyalty stamps</p>
-        <h2>1 stamp for every GBP 5.</h2>
+        <h2>1 stamp for every {formatGBP(500)}.</h2>
         <p>
           Sign in before checkout to earn stamps. Collect 8 stamps and redeem a
-          GBP 5 reward on a future order.
+          {formatGBP(500)} reward on a future order.
         </p>
       </div>
 
@@ -21,7 +23,7 @@ function LoyaltyPreview() {
             B&B
           </span>
         ))}
-        <strong>8 stamps = GBP 5 off</strong>
+        <strong>8 stamps = {formatGBP(500)} off</strong>
       </div>
     </section>
   );

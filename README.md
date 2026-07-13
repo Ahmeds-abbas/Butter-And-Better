@@ -134,6 +134,12 @@ Deployment checklist:
 
 Checkout redirect URLs are environment-aware. The browser sends its current `window.location.origin` to the backend, so local development redirects back to `localhost`, while staging redirects back to the deployed staging domain. Do not hardcode localhost or production domains in the checkout flow.
 
+## Custom domain
+
+The public production domain is `butterandbetter.co.uk`. Canonical browser metadata is already configured for `https://butterandbetter.co.uk/`; DNS remains a manual deployment step.
+
+In Amplify Hosting, open the app, choose **Hosting > Custom domains**, add `butterandbetter.co.uk`, and follow the displayed DNS verification instructions at the domain registrar. Add the `www` subdomain if required and redirect one hostname to the other so there is a single canonical URL. Do not change the checkout redirect code: it uses the browser origin and will automatically use the custom domain after DNS and the Amplify certificate are active.
+
 `amplify_outputs.json` is generated per environment and is intentionally ignored by git. Local sandbox output should not be committed; Amplify Hosting/pipeline deployment provides environment-specific outputs for the deployed branch.
 
 Stripe local test flow:

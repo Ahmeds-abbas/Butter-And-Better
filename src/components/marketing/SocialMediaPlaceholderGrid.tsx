@@ -1,26 +1,48 @@
-const socialCards = [
-  "Mixing clip placeholder",
-  "Fresh bake reveal placeholder",
-  "Packing orders placeholder",
-];
+type VideoMoment = {
+  id: string;
+  title: string;
+  videoUrl: string;
+  posterUrl: string;
+};
 
-function SocialMediaPlaceholderGrid() {
+type SocialMediaPlaceholderGridProps = {
+  moments: VideoMoment[];
+};
+
+const placeholderMoments = ["Mixing", "Fresh bake reveal", "Packing orders"];
+
+function SocialMediaPlaceholderGrid({ moments }: SocialMediaPlaceholderGridProps) {
   return (
-    <section className="social-placeholder-section">
+    <section className="video-moments-section home-content-block" aria-labelledby="video-moments-title">
       <div className="section-heading">
         <p className="eyebrow">Fresh from the kitchen</p>
-        <h2>Video moments coming soon</h2>
+        <h2 id="video-moments-title">Video moments</h2>
       </div>
 
-      <div className="social-placeholder-grid">
-        {socialCards.map((label) => (
-          <article key={label} className="social-placeholder-card">
-            <div className="social-placeholder-frame">
-              <span>{label}</span>
-            </div>
-            <p>Instagram or TikTok style content placeholder.</p>
-          </article>
-        ))}
+      <div className="video-moments-row">
+        {moments.length > 0
+          ? moments.map((moment) => (
+              <article key={moment.id} className="video-moment-card">
+                <video
+                  controls
+                  playsInline
+                  preload="metadata"
+                  poster={moment.posterUrl}
+                  src={moment.videoUrl}
+                >
+                  <track kind="captions" />
+                </video>
+                <h3>{moment.title}</h3>
+              </article>
+            ))
+          : placeholderMoments.map((title) => (
+              <article key={title} className="video-moment-card video-moment-placeholder">
+                <div role="img" aria-label={`${title} video coming soon`}>
+                  <span>Video coming soon</span>
+                </div>
+                <h3>{title}</h3>
+              </article>
+            ))}
       </div>
     </section>
   );

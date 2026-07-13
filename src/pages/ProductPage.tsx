@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { useBasket } from "../hooks/useBasket";
 import { dataClient } from "../lib/amplifyClient";
+import { formatGBPFromPounds } from "../lib/currency";
 import {
   getProductImageAltText,
   resolveProductGalleryImages,
@@ -325,7 +326,7 @@ function ProductPage() {
 
                 <span>{variant.name}</span>
 
-                <strong>GBP {variant.price.toFixed(2)}</strong>
+                <strong>{formatGBPFromPounds(variant.price)}</strong>
               </label>
             ))}
           </fieldset>
@@ -367,7 +368,7 @@ function ProductPage() {
 
           {selectedVariant && (
             <p className="selected-total">
-              Total: GBP {(selectedVariant.price * quantity).toFixed(2)}
+              Total: {formatGBPFromPounds(selectedVariant.price * quantity)}
             </p>
           )}
 

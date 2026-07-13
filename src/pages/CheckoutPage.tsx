@@ -13,6 +13,7 @@ import {
   formatCurrencyFromPence,
 } from "../lib/checkoutCalculations";
 import { dataClient } from "../lib/amplifyClient";
+import { formatGBP } from "../lib/currency";
 import {
   createCheckoutOrder,
 } from "../lib/orderCreation";
@@ -51,7 +52,7 @@ const fulfilmentOptions: Array<{
   {
     value: "nationwide",
     label: "UK tracked delivery",
-    description: "Tracked delivery across the UK for eligible bakes. GBP 2.99.",
+    description: `Tracked delivery across the UK for eligible bakes. ${formatGBP(299)}.`,
   },
   {
     value: "collection",

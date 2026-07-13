@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { formatGBP } from "../../lib/currency";
 
 const heroSlides = [
   {
@@ -16,7 +17,7 @@ const heroSlides = [
   {
     label: "Loyalty stamps",
     title: "Treats that give back",
-    copy: "Signed-in customers earn 1 stamp per GBP 5 spent on products. Eight stamps unlock GBP 5 off.",
+    copy: `Signed-in customers earn 1 stamp per ${formatGBP(500)} spent on products. Eight stamps unlock ${formatGBP(500)} off.`,
     mediaLabel: "Loyalty and packing video coming soon",
   },
 ];

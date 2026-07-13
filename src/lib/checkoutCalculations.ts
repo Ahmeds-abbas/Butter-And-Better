@@ -1,6 +1,7 @@
 import type { BasketItem } from "../types/basket";
 import type { FulfilmentMethod } from "../types/checkout";
 import { rewardValueInPence } from "./loyalty";
+import { formatGBP } from "./currency";
 
 export type CheckoutTotals = {
   subtotalInPence: number;
@@ -77,8 +78,5 @@ export function calculateCheckoutTotals(
 }
 
 export function formatCurrencyFromPence(valueInPence: number) {
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format(valueInPence / 100);
+  return formatGBP(valueInPence);
 }
