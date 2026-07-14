@@ -5208,3 +5208,396 @@
   object-fit: cover;
   object-position: center;
 }
+
+/* Account and loyalty experience. */
+.account-page {
+  display: grid;
+  gap: 32px;
+  padding-bottom: clamp(48px, 7vw, 96px);
+}
+
+.account-loyalty-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 0.72fr) minmax(420px, 1.28fr);
+  gap: clamp(32px, 5vw, 72px);
+  align-items: center;
+  max-width: none;
+  min-height: 560px;
+  padding: clamp(40px, 6vw, 88px);
+  overflow: hidden;
+  color: #f2f0ec;
+  background: #573615;
+  border-radius: 18px;
+  box-shadow: 0 24px 64px rgba(61, 36, 14, 0.18);
+}
+
+.account-loyalty-copy {
+  position: relative;
+  z-index: 1;
+}
+
+.account-loyalty-copy .eyebrow {
+  margin: 0 0 18px;
+  color: #b8c6aa;
+}
+
+.account-loyalty-copy h1 {
+  max-width: 680px;
+  margin: 0;
+  color: #f2f0ec;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 6rem;
+  font-weight: 600;
+  line-height: 0.92;
+}
+
+.account-loyalty-rules {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  max-width: 510px;
+  margin-top: 48px;
+  overflow: hidden;
+  border: 1px solid rgba(242, 240, 236, 0.22);
+  border-radius: 12px;
+  background: rgba(242, 240, 236, 0.22);
+}
+
+.account-loyalty-rules div {
+  display: grid;
+  gap: 7px;
+  padding: 22px;
+  background: #573615;
+  transition: background-color 180ms ease;
+}
+
+.account-loyalty-rules div:hover {
+  background: #68431f;
+}
+
+.account-loyalty-rules strong {
+  color: #f2f0ec;
+  font-size: 1.35rem;
+}
+
+.account-loyalty-rules span {
+  color: #b8c6aa;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.account-stamp-artwork {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  overflow: hidden;
+  aspect-ratio: 3 / 2;
+  border: 1px solid rgba(242, 240, 236, 0.24);
+  border-radius: 14px;
+  background: #1c160f;
+  box-shadow: 0 28px 60px rgba(20, 12, 5, 0.3);
+  transform: rotate(1deg);
+  transition: transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 420ms ease;
+}
+
+.account-stamp-artwork:hover {
+  box-shadow: 0 34px 76px rgba(20, 12, 5, 0.38);
+  transform: rotate(0deg) scale(1.015);
+}
+
+.account-stamp-artwork img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.account-auth-section {
+  width: min(1120px, 100%);
+  margin-inline: auto;
+}
+
+.account-auth-section [data-amplify-authenticator] {
+  --amplify-colors-brand-primary-10: #f2f0ec;
+  --amplify-colors-brand-primary-80: #738561;
+  --amplify-colors-brand-primary-90: #657753;
+  --amplify-colors-brand-primary-100: #573615;
+  --amplify-components-authenticator-router-border-width: 0;
+  --amplify-components-authenticator-router-box-shadow: 0 20px 55px
+    rgba(87, 54, 21, 0.11);
+  --amplify-components-button-border-radius: 8px;
+  --amplify-components-fieldcontrol-border-radius: 8px;
+}
+
+.account-dashboard {
+  gap: 24px;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.account-dashboard-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 22px;
+  border: 1px solid rgba(87, 54, 21, 0.12);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.account-dashboard-heading > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.account-dashboard-heading span {
+  color: #786f67;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.account-dashboard-heading strong {
+  overflow-wrap: anywhere;
+  color: #573615;
+}
+
+.account-sign-out {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  color: #573615;
+  background: transparent;
+  font-weight: 800;
+}
+
+.account-sign-out svg {
+  width: 18px;
+  height: 18px;
+}
+
+.account-sign-out:hover,
+.account-sign-out:focus-visible {
+  color: #738561;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.account-dashboard .loyalty-card {
+  position: relative;
+  gap: 28px;
+  padding: clamp(24px, 4vw, 48px);
+  overflow: hidden;
+  border: 1px solid rgba(87, 54, 21, 0.12);
+  border-radius: 18px;
+  background: #f2f0ec;
+  box-shadow: 0 22px 58px rgba(87, 54, 21, 0.1);
+}
+
+.account-dashboard .loyalty-card-heading {
+  align-items: center;
+}
+
+.account-dashboard .loyalty-card-heading h2 {
+  margin: 4px 0 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2.4rem;
+  line-height: 1;
+}
+
+.account-dashboard .loyalty-card-heading .eyebrow {
+  margin: 0;
+}
+
+.account-dashboard .loyalty-card-heading > strong {
+  padding: 9px 13px;
+  border-radius: 999px;
+  color: #fff;
+  background: #738561;
+  font-size: 0.82rem;
+}
+
+.account-dashboard .loyalty-stamp-grid {
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: clamp(8px, 1.5vw, 16px);
+}
+
+.account-dashboard .loyalty-stamp {
+  --stamp-progress: 0%;
+  aspect-ratio: 1;
+  min-height: 0;
+  padding: 5px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 50%;
+  color: transparent;
+  background: rgba(87, 54, 21, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(87, 54, 21, 0.12);
+  transition: transform 220ms ease, box-shadow 220ms ease;
+}
+
+.account-dashboard .loyalty-stamp:hover {
+  box-shadow: inset 0 0 0 1px rgba(87, 54, 21, 0.16),
+    0 9px 20px rgba(87, 54, 21, 0.14);
+  transform: translateY(-3px) rotate(2deg);
+}
+
+.loyalty-stamp-mark {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-image: url("./assets/LoyaltyStamp.png");
+  background-repeat: no-repeat;
+  background-position: 8% 41%;
+  background-size: 530% auto;
+  filter: grayscale(1);
+  opacity: 0.2;
+}
+
+.account-dashboard .loyalty-stamp-filled {
+  background: #738561;
+  box-shadow: 0 8px 20px rgba(75, 92, 61, 0.24);
+}
+
+.account-dashboard .loyalty-stamp-filled .loyalty-stamp-mark {
+  filter: none;
+  opacity: 1;
+}
+
+.account-dashboard .loyalty-stamp-partial {
+  padding: 5px;
+  background: conic-gradient(
+    #738561 var(--stamp-progress),
+    rgba(87, 54, 21, 0.08) 0
+  );
+}
+
+.account-dashboard .loyalty-stamp-partial .loyalty-stamp-mark {
+  filter: none;
+  opacity: 0.55;
+}
+
+.account-dashboard .loyalty-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.account-dashboard .loyalty-summary div {
+  padding: 15px 16px;
+  border: 1px solid rgba(87, 54, 21, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.account-dashboard .loyalty-summary dd {
+  margin-top: 6px;
+  font-size: 1.05rem;
+}
+
+.account-status {
+  margin: 0;
+  padding: 22px;
+  border-radius: 12px;
+  background: #f2f0ec;
+  color: #573615;
+  font-weight: 800;
+  text-align: center;
+}
+
+.account-status-error {
+  color: #9b3327;
+}
+
+@media (max-width: 1000px) {
+  .account-loyalty-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .account-loyalty-copy h1 {
+    font-size: 4.75rem;
+  }
+
+  .account-stamp-artwork {
+    width: min(760px, 100%);
+  }
+
+  .account-dashboard .loyalty-stamp-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .account-page {
+    gap: 20px;
+  }
+
+  .account-loyalty-hero {
+    min-height: 0;
+    padding: 36px 22px 22px;
+    border-radius: 12px;
+  }
+
+  .account-loyalty-copy h1 {
+    font-size: 3.4rem;
+  }
+
+  .account-loyalty-rules {
+    margin-top: 32px;
+  }
+
+  .account-loyalty-rules div {
+    padding: 16px;
+  }
+
+  .account-loyalty-rules strong {
+    font-size: 1.05rem;
+  }
+
+  .account-stamp-artwork {
+    border-radius: 9px;
+  }
+
+  .account-dashboard-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .account-sign-out {
+    padding-left: 0;
+  }
+
+  .account-dashboard .loyalty-card-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .account-dashboard .loyalty-card-heading h2 {
+    font-size: 2rem;
+  }
+
+  .account-dashboard .loyalty-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-stamp-artwork,
+  .account-loyalty-rules div,
+  .account-dashboard .loyalty-stamp {
+    transition: none;
+  }
+}

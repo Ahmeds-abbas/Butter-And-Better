@@ -1,9 +1,10 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { Authenticator } from "@aws-amplify/ui-react";
 import { fetchAuthSession } from "aws-amplify/auth";
+import { LogOut } from "lucide-react";
 import "@aws-amplify/ui-react/styles.css";
+import loyaltyStampArtwork from "../assets/LoyaltyStamp.png";
 import { dataClient } from "../lib/amplifyClient";
-import { formatGBP } from "../lib/currency";
 import {
   formatLoyaltyCurrency,
   stampSpendInPence,
@@ -81,16 +82,11 @@ function LoyaltyStampCard({ profile }: { profile: LoyaltyProfile }) {
     <section className="loyalty-card" aria-labelledby="loyalty-heading">
       <div className="loyalty-card-heading">
         <div>
-          <p className="eyebrow">Loyalty</p>
-          <h2 id="loyalty-heading">Butter & Better stamp card</h2>
+          <p className="eyebrow">Your balance</p>
+          <h2 id="loyalty-heading">Your stamps</h2>
         </div>
-        <strong>{profile.availableRewards} rewards</strong>
+        <strong>{profile.availableRewards} x £5 reward</strong>
       </div>
-
-      <p>
-        Earn 1 stamp for every {formatGBP(500)} spent. Collect 8 stamps for a{" "}
-        {formatGBP(500)} reward.
-      </p>
 
       <div className="loyalty-stamp-grid" aria-label="Loyalty stamps">
         {Array.from({ length: stampsPerReward }, (_, index) => {
@@ -118,7 +114,7 @@ function LoyaltyStampCard({ profile }: { profile: LoyaltyProfile }) {
                     : "empty"
               }`}
             >
-              B&B
+              <span className="loyalty-stamp-mark" aria-hidden="true" />
             </span>
           );
         })}
@@ -126,21 +122,21 @@ function LoyaltyStampCard({ profile }: { profile: LoyaltyProfile }) {
 
       <dl className="loyalty-summary">
         <div>
-          <dt>Stamps</dt>
+          <dt>Stamps collected</dt>
           <dd>
             {profile.loyaltyStamps} / {stampsPerReward}
           </dd>
         </div>
         <div>
-          <dt>Progress</dt>
+          <dt>Next stamp</dt>
           <dd>
             {formatLoyaltyCurrency(profile.loyaltyRemainderInPence)} /{" "}
-            {formatLoyaltyCurrency(stampSpendInPence)} toward next stamp
+            {formatLoyaltyCurrency(stampSpendInPence)}
           </dd>
         </div>
         <div>
-          <dt>Available rewards</dt>
-          <dd>{profile.availableRewards} x {formatGBP(500)}</dd>
+          <dt>£5 rewards</dt>
+          <dd>{profile.availableRewards}</dd>
         </div>
       </dl>
     </section>
@@ -183,11 +179,11 @@ function AccountLoyaltySection() {
   }, []);
 
   if (isLoading) {
-    return <p aria-live="polite">Loading your loyalty stamp card...</p>;
+    return <p className="account-status" aria-live="polite">Loading your stamps...</p>;
   }
 
   if (loadError) {
-    return <p role="alert">{loadError}</p>;
+    return <p className="account-status account-status-error" role="alert">{loadError}</p>;
   }
 
   return profile ? <LoyaltyStampCard profile={profile} /> : null;
@@ -195,51 +191,57 @@ function AccountLoyaltySection() {
 
 function AccountPage() {
   return (
-    <main className="page">
-      <section className="page-header account-hero">
-        <div>
-          <p className="eyebrow">Your account</p>
-          <h1>Sign in, earn stamps, redeem rewards.</h1>
-          <p>
-            Earn 1 stamp per {formatGBP(500)} spent, keep leftover spend toward
-            the next stamp, and redeem 8 stamps for {formatGBP(500)} off.
-          </p>
+    <main className="page account-page">
+      <section className="account-hero account-loyalty-hero">
+        <div className="account-loyalty-copy">
+          <p className="eyebrow">Butter &amp; Better loyalty</p>
+          <h1>Your loyalty.</h1>
+
+          <div className="account-loyalty-rules" aria-label="Loyalty rules">
+            <div>
+              <strong>£5 spent</strong>
+              <span>1 stamp</span>
+            </div>
+            <div>
+              <strong>8 stamps</strong>
+              <span>£5 off</span>
+            </div>
+          </div>
         </div>
-        <div className="loyalty-preview-card account-stamp-preview">
-          {Array.from({ length: 8 }, (_, index) => (
-            <span
-              key={index}
-              className={`loyalty-preview-stamp ${
-                index < 4 ? "loyalty-preview-stamp-filled" : ""
-              }`}
-            >
-              B&B
-            </span>
-          ))}
-          <strong>Your stamp card lives here</strong>
-        </div>
+
+        <figure className="account-stamp-artwork">
+          <img
+            src={loyaltyStampArtwork}
+            alt="Eight Butter and Better whisk loyalty stamps"
+          />
+        </figure>
       </section>
 
-      <Authenticator loginMechanisms={["email"]}>
-        {({ signOut, user }) => (
-          <section className="account-dashboard">
-            <div className="page-header">
-              <h2>Welcome</h2>
-              <p>{user?.signInDetails?.loginId}</p>
+      <section className="account-auth-section">
+        <Authenticator loginMechanisms={["email"]}>
+          {({ signOut, user }) => (
+            <section className="account-dashboard">
+              <div className="account-dashboard-heading">
+                <div>
+                  <span>Signed in as</span>
+                  <strong>{user?.signInDetails?.loginId}</strong>
+                </div>
 
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={signOut}
-              >
-                Sign out
-              </button>
-            </div>
+                <button
+                  type="button"
+                  className="account-sign-out"
+                  onClick={signOut}
+                >
+                  <LogOut aria-hidden="true" />
+                  <span>Sign out</span>
+                </button>
+              </div>
 
-            <AccountLoyaltySection />
-          </section>
-        )}
-      </Authenticator>
+              <AccountLoyaltySection />
+            </section>
+          )}
+        </Authenticator>
+      </section>
     </main>
   );
 }
