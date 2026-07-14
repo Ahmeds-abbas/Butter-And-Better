@@ -4,10 +4,17 @@ import { getAmplifyDataClientConfig } from "@aws-amplify/backend/function/runtim
 import Stripe from "stripe";
 import { env } from "$amplify/env/create-checkout-session";
 import type { Schema } from "../../data/resource";
+import {
+  maxCheckoutLineItems,
+  validateCheckoutOrder,
+} from "./validation";
 
 type OrderUpdateInput = Parameters<
   ReturnType<typeof generateClient<Schema>>["models"]["Order"]["update"]
 >[0];
+type OrderItemRecord = Awaited<
+  ReturnType<Schema["Order"]["type"]["items"]>
+>["data"][number];
 
 const stripe = new Stripe(env.STRIPE_SECRET_KEY);
 
@@ -17,7 +24,6 @@ const { resourceConfig, libraryOptions } =
 Amplify.configure(resourceConfig, libraryOptions);
 
 const client = generateClient<Schema>();
-const loyaltyRewardValueInPence = 500;
 
 function createOrderUpdateInput(
   order: Schema["Order"]["type"],
@@ -65,8 +71,20 @@ function createOrderUpdateInput(
 
 function requireSafeOrigin(origin: string) {
   const parsedOrigin = new URL(origin);
+  const isLocalDevelopmentHost =
+    parsedOrigin.hostname === "localhost" ||
+    parsedOrigin.hostname === "127.0.0.1" ||
+    parsedOrigin.hostname === "[::1]";
 
   if (!["http:", "https:"].includes(parsedOrigin.protocol)) {
+    throw new Error("Invalid checkout origin.");
+  }
+
+  if (parsedOrigin.protocol === "http:" && !isLocalDevelopmentHost) {
+    throw new Error("Checkout origin must use HTTPS.");
+  }
+
+  if (parsedOrigin.username || parsedOrigin.password) {
     throw new Error("Invalid checkout origin.");
   }
 
@@ -91,6 +109,71 @@ function getCallerSub(identity: unknown) {
   return typeof maybeIdentity.sub === "string" && maybeIdentity.sub.length > 0
     ? maybeIdentity.sub
     : null;
+}
+
+async function loadOrderItems(order: Schema["Order"]["type"]) {
+  const items: OrderItemRecord[] = [];
+  let nextToken: string | null | undefined;
+
+  do {
+    const itemResponse = await order.items({
+      limit: 100,
+      nextToken,
+    });
+
+    if (itemResponse.errors?.length) {
+      throw new Error("Order items could not be loaded.");
+    }
+
+    items.push(...itemResponse.data);
+
+    if (items.length > maxCheckoutLineItems) {
+      throw new Error("Order contains too many items.");
+    }
+
+    nextToken = itemResponse.nextToken;
+  } while (nextToken);
+
+  return items;
+}
+
+async function loadCatalogueItems(items: readonly OrderItemRecord[]) {
+  return Promise.all(
+    items.map(async (item) => {
+      if (!item.productId || !item.variantId) {
+        throw new Error("Order item is missing product information.");
+      }
+
+      const [productResponse, variantResponse] = await Promise.all([
+        client.models.Product.get({ id: item.productId }),
+        client.models.ProductVariant.get({ id: item.variantId }),
+      ]);
+
+      if (productResponse.errors?.length || !productResponse.data) {
+        throw new Error(`${item.productName} is no longer available.`);
+      }
+
+      if (
+        variantResponse.errors?.length ||
+        !variantResponse.data ||
+        variantResponse.data.productId !== productResponse.data.id
+      ) {
+        throw new Error(`${item.variantName} is no longer available.`);
+      }
+
+      return {
+        productId: productResponse.data.id,
+        variantId: variantResponse.data.id,
+        productName: productResponse.data.name,
+        variantName: variantResponse.data.name,
+        unitPriceInPence: variantResponse.data.priceInPence,
+        productIsActive: productResponse.data.isActive,
+        variantIsActive: variantResponse.data.isActive,
+        nationwideDelivery: productResponse.data.nationwideDelivery,
+        stockQuantity: variantResponse.data.stockQuantity,
+      };
+    }),
+  );
 }
 
 export const handler: Schema["createCheckoutSession"]["functionHandler"] =
@@ -119,31 +202,22 @@ export const handler: Schema["createCheckoutSession"]["functionHandler"] =
       throw new Error("This order is already paid.");
     }
 
-    const itemResponse = await order.items();
-
-    if (itemResponse.errors?.length || itemResponse.data.length === 0) {
-      throw new Error("Order items could not be loaded.");
-    }
-
-    const subtotalInPence = itemResponse.data.reduce(
-      (total, item) => total + item.lineTotalInPence,
-      0,
-    );
-    const calculatedTotal =
-      subtotalInPence + order.deliveryFeeInPence - order.rewardDiscountInPence;
-
     if (
-      subtotalInPence !== order.subtotalInPence ||
-      calculatedTotal !== order.totalInPence
+      order.status !== "pending" ||
+      !["pending", "failed"].includes(order.paymentStatus)
     ) {
-      throw new Error("Order totals do not match stored order items.");
+      throw new Error("This order cannot be sent to payment.");
     }
 
-    if (order.rewardDiscountInPence > 0) {
-      if (order.rewardDiscountInPence !== loyaltyRewardValueInPence) {
-        throw new Error("Invalid loyalty reward discount.");
-      }
+    const orderItems = await loadOrderItems(order);
+    const catalogueItems = await loadCatalogueItems(orderItems);
+    const validatedOrder = validateCheckoutOrder({
+      order,
+      items: orderItems,
+      catalogueItems,
+    });
 
+    if (validatedOrder.rewardDiscountInPence > 0) {
       if (!order.customerProfileId) {
         throw new Error(
           "Loyalty rewards can only be redeemed by signed-in customers.",
@@ -164,7 +238,7 @@ export const handler: Schema["createCheckoutSession"]["functionHandler"] =
     }
 
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
-      itemResponse.data.map((item) => ({
+      validatedOrder.validatedItems.map((item) => ({
         quantity: item.quantity,
         price_data: {
           currency: "gbp",
@@ -175,12 +249,12 @@ export const handler: Schema["createCheckoutSession"]["functionHandler"] =
         },
       }));
 
-    if (order.deliveryFeeInPence > 0) {
+    if (validatedOrder.deliveryFeeInPence > 0) {
       lineItems.push({
         quantity: 1,
         price_data: {
           currency: "gbp",
-          unit_amount: order.deliveryFeeInPence,
+          unit_amount: validatedOrder.deliveryFeeInPence,
           product_data: {
             name: "Delivery",
           },
@@ -190,9 +264,9 @@ export const handler: Schema["createCheckoutSession"]["functionHandler"] =
 
     const discounts: Stripe.Checkout.SessionCreateParams.Discount[] = [];
 
-    if (order.rewardDiscountInPence > 0) {
+    if (validatedOrder.rewardDiscountInPence > 0) {
       const coupon = await stripe.coupons.create({
-        amount_off: order.rewardDiscountInPence,
+        amount_off: validatedOrder.rewardDiscountInPence,
         currency: "gbp",
         duration: "once",
         name: `Butter & Better reward ${order.orderNumber}`,

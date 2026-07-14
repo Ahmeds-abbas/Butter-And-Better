@@ -147,7 +147,8 @@ function HomePage() {
     <main className="home-page">
       <section
         className={`home-main-hero ${hasHeroImage ? "" : "home-main-hero-no-image"}`}
-        aria-labelledby="home-hero-title"
+        aria-labelledby={isLoading ? undefined : "home-hero-title"}
+        aria-label={isLoading ? "Loading featured Butter and Better product" : undefined}
       >
         {hasHeroImage && (
           <img
@@ -157,30 +158,43 @@ function HomePage() {
           />
         )}
         <div className="home-main-hero-shade" />
-        <div className="home-main-hero-content">
-          <p className="hero-pill">
-            <span className="hero-pill-sparkles" aria-hidden="true">
-              <Star size={8} strokeWidth={2.2} fill="currentColor" />
-              <Sparkles size={15} strokeWidth={2.4} />
+        {isLoading ? (
+          <div className="home-main-hero-loading" role="status">
+            <strong>B&amp;B</strong>
+            <span>Preparing this week&apos;s flavour</span>
+            <span className="home-hero-loading-dots" aria-hidden="true">
+              <i />
+              <i />
+              <i />
             </span>
-            <span>Flavour of the Week</span>
-            <span className="hero-pill-sparkles" aria-hidden="true">
-              <Sparkles size={13} strokeWidth={2.4} />
-              <Star size={7} strokeWidth={2.2} fill="currentColor" />
-            </span>
-          </p>
-          <h1 id="home-hero-title">
-            {featuredProduct?.name ?? "Freshly baked, beautifully boxed."}
-          </h1>
-          <p>
-            {featuredProduct?.description ??
-              "Cookies, brownies, brookies, blondies and banana pudding made in small batches."}
-          </p>
-          <Link to="/shop" className="hero-carousel-button">
-            Explore Our Menu
-          </Link>
-        </div>
-        {isLoading && <span className="home-hero-status">Loading this week's flavour...</span>}
+          </div>
+        ) : (
+          <div className="home-main-hero-content home-main-hero-content-ready">
+            {featuredProduct && (
+              <p className="hero-pill">
+                <span className="hero-pill-sparkles" aria-hidden="true">
+                  <Star size={8} strokeWidth={2.2} fill="currentColor" />
+                  <Sparkles size={15} strokeWidth={2.4} />
+                </span>
+                <span>Flavour of the Week</span>
+                <span className="hero-pill-sparkles" aria-hidden="true">
+                  <Sparkles size={13} strokeWidth={2.4} />
+                  <Star size={7} strokeWidth={2.2} fill="currentColor" />
+                </span>
+              </p>
+            )}
+            <h1 id="home-hero-title">
+              {featuredProduct?.name ?? "Butter & Better"}
+            </h1>
+            <p>
+              {featuredProduct?.description ??
+                "The featured menu could not be loaded right now."}
+            </p>
+            <Link to="/shop" className="hero-carousel-button">
+              Explore Our Menu
+            </Link>
+          </div>
+        )}
       </section>
 
       {loadError && <p className="home-load-error" role="status">{loadError}</p>}

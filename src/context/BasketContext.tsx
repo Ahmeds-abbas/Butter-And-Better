@@ -1,9 +1,20 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   BasketContext,
   type BasketContextValue,
 } from "./BasketContextState";
 import type { BasketItem } from "../types/basket";
+import {
+  maxBasketItemQuantity,
+  normalizeBasketItems,
+  normalizeBasketQuantity,
+} from "../lib/basketValidation";
 
 type AddBasketItem = Omit<BasketItem, "id">;
 
@@ -14,15 +25,14 @@ type BasketProviderProps = {
 const BASKET_STORAGE_KEY = "butter-and-better-basket";
 
 function getStoredBasketItems(): BasketItem[] {
-  const storedBasketItems = localStorage.getItem(BASKET_STORAGE_KEY);
-
-  if (!storedBasketItems) {
-    return [];
-  }
-
   try {
-    return JSON.parse(storedBasketItems) as BasketItem[];
-  } catch {
+    const storedBasketItems = localStorage.getItem(BASKET_STORAGE_KEY);
+
+    return storedBasketItems
+      ? normalizeBasketItems(JSON.parse(storedBasketItems))
+      : [];
+  } catch (error) {
+    console.warn("Could not restore the saved basket:", error);
     return [];
   }
 }
@@ -32,10 +42,25 @@ export function BasketProvider({ children }: BasketProviderProps) {
     useState<BasketItem[]>(getStoredBasketItems);
 
   useEffect(() => {
-    localStorage.setItem(BASKET_STORAGE_KEY, JSON.stringify(basketItems));
+    try {
+      localStorage.setItem(BASKET_STORAGE_KEY, JSON.stringify(basketItems));
+    } catch (error) {
+      console.warn("Could not save the basket:", error);
+    }
   }, [basketItems]);
 
-  function addToBasket(item: AddBasketItem) {
+  const addToBasket = useCallback((item: AddBasketItem) => {
+    const normalizedItem = normalizeBasketItems([
+      {
+        ...item,
+        id: `${item.productId}-${item.variantId}`,
+      },
+    ])[0];
+
+    if (!normalizedItem) {
+      return;
+    }
+
     const basketItemId = `${item.productId}-${item.variantId}`;
 
     setBasketItems((currentItems) => {
@@ -48,7 +73,10 @@ export function BasketProvider({ children }: BasketProviderProps) {
           currentItem.id === basketItemId
             ? {
                 ...currentItem,
-                quantity: currentItem.quantity + item.quantity,
+                quantity: Math.min(
+                  maxBasketItemQuantity,
+                  currentItem.quantity + normalizedItem.quantity,
+                ),
               }
             : currentItem,
         );
@@ -57,35 +85,41 @@ export function BasketProvider({ children }: BasketProviderProps) {
       return [
         ...currentItems,
         {
-          ...item,
+          ...normalizedItem,
           id: basketItemId,
         },
       ];
     });
-  }
+  }, []);
 
-  function updateQuantity(itemId: string, quantity: number) {
-    if (quantity < 1) {
+  const removeFromBasket = useCallback((itemId: string) => {
+    setBasketItems((currentItems) =>
+      currentItems.filter((item) => item.id !== itemId),
+    );
+  }, []);
+
+  const updateQuantity = useCallback((itemId: string, quantity: number) => {
+    const normalizedQuantity = normalizeBasketQuantity(quantity);
+
+    if (normalizedQuantity === null) {
+      return;
+    }
+
+    if (normalizedQuantity < 1) {
       removeFromBasket(itemId);
       return;
     }
 
     setBasketItems((currentItems) =>
       currentItems.map((item) =>
-        item.id === itemId ? { ...item, quantity } : item,
+        item.id === itemId ? { ...item, quantity: normalizedQuantity } : item,
       ),
     );
-  }
+  }, [removeFromBasket]);
 
-  function removeFromBasket(itemId: string) {
-    setBasketItems((currentItems) =>
-      currentItems.filter((item) => item.id !== itemId),
-    );
-  }
-
-  function clearBasket() {
+  const clearBasket = useCallback(() => {
     setBasketItems([]);
-  }
+  }, []);
 
   const basketItemCount = useMemo(
     () =>
@@ -106,15 +140,26 @@ export function BasketProvider({ children }: BasketProviderProps) {
     [basketItems],
   );
 
-  const value: BasketContextValue = {
-    basketItems,
-    basketItemCount,
-    basketSubtotal,
-    addToBasket,
-    updateQuantity,
-    removeFromBasket,
-    clearBasket,
-  };
+  const value = useMemo<BasketContextValue>(
+    () => ({
+      basketItems,
+      basketItemCount,
+      basketSubtotal,
+      addToBasket,
+      updateQuantity,
+      removeFromBasket,
+      clearBasket,
+    }),
+    [
+      addToBasket,
+      basketItemCount,
+      basketItems,
+      basketSubtotal,
+      clearBasket,
+      removeFromBasket,
+      updateQuantity,
+    ],
+  );
 
   return (
     <BasketContext.Provider value={value}>

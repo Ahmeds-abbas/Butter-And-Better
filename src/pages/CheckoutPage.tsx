@@ -240,7 +240,7 @@ function validateCheckoutForm(
 }
 
 function CheckoutPage() {
-  const { basketItems, clearBasket } = useBasket();
+  const { basketItems } = useBasket();
   const [formData, setFormData] = useState<CheckoutFormData>(
     initialCheckoutFormData,
   );
@@ -576,7 +576,6 @@ function CheckoutPage() {
         );
       }
 
-      clearBasket();
       window.location.assign(sessionResponse.data.checkoutUrl);
     } catch (error) {
       console.error("Failed to create checkout order:", error);

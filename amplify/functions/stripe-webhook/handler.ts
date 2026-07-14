@@ -193,6 +193,13 @@ async function settleLoyaltyForPaidOrder(order: Schema["Order"]["type"]) {
     order.subtotalInPence - order.rewardDiscountInPence,
   );
   const redeemedRewards = order.rewardDiscountInPence > 0 ? 1 : 0;
+
+  if (profileResponse.data.availableRewards < redeemedRewards) {
+    throw new Error(
+      `Customer profile ${profileResponse.data.id} no longer has the redeemed loyalty reward.`,
+    );
+  }
+
   const nextLoyalty = calculateLoyaltySettlement(
     {
       loyaltyStamps: profileResponse.data.loyaltyStamps,
@@ -493,7 +500,12 @@ async function notifyPaidOrder(
           customerOrderConfirmationEmailSentAt: new Date().toISOString(),
         });
 
-        await client.models.Order.update(customerEmailUpdate);
+        const customerEmailUpdateResponse =
+          await client.models.Order.update(customerEmailUpdate);
+
+        if (customerEmailUpdateResponse.errors?.length) {
+          throw new Error("Could not record the customer email notification.");
+        }
       } catch (error) {
         console.error(
           `Failed to send customer confirmation email for ${latestOrder.orderNumber}:`,
@@ -511,7 +523,12 @@ async function notifyPaidOrder(
           adminOrderNotificationEmailSentAt: new Date().toISOString(),
         });
 
-        await client.models.Order.update(adminEmailUpdate);
+        const adminEmailUpdateResponse =
+          await client.models.Order.update(adminEmailUpdate);
+
+        if (adminEmailUpdateResponse.errors?.length) {
+          throw new Error("Could not record the admin email notification.");
+        }
       } catch (error) {
         console.error(
           `Failed to send admin notification email for ${orderForAdminEmail.orderNumber}:`,
@@ -535,11 +552,20 @@ async function markSessionFailed(session: Stripe.Checkout.Session) {
   }
 
   const order = await getOrder(orderId);
+
+  if (order.paymentStatus === "paid") {
+    return order.id;
+  }
+
   const updateInput = createOrderUpdateInput(order, {
     paymentStatus: "failed",
   });
 
-  await client.models.Order.update(updateInput);
+  const updateResponse = await client.models.Order.update(updateInput);
+
+  if (updateResponse.errors?.length) {
+    throw new Error(`Could not mark order ${order.id} as failed.`);
+  }
 
   return order.id;
 }
@@ -552,12 +578,21 @@ async function markPaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   }
 
   const order = await getOrder(orderId);
+
+  if (order.paymentStatus === "paid") {
+    return order.id;
+  }
+
   const updateInput = createOrderUpdateInput(order, {
     paymentStatus: "failed",
     stripePaymentIntentId: paymentIntent.id,
   });
 
-  await client.models.Order.update(updateInput);
+  const updateResponse = await client.models.Order.update(updateInput);
+
+  if (updateResponse.errors?.length) {
+    throw new Error(`Could not mark order ${order.id} as failed.`);
+  }
 
   return order.id;
 }
@@ -597,21 +632,64 @@ async function markChargeRefunded(charge: Stripe.Charge) {
     refundedAt: new Date().toISOString(),
   });
 
-  await client.models.Order.update(updateInput);
+  const updateResponse = await client.models.Order.update(updateInput);
+
+  if (updateResponse.errors?.length) {
+    throw new Error(`Could not mark order ${order.id} as refunded.`);
+  }
 
   return order.id;
 }
 
-async function recordProcessedEvent(
+async function claimEvent(stripeEvent: Stripe.Event) {
+  const claimResponse = await client.models.PaymentEvent.create({
+    eventId: stripeEvent.id,
+    eventType: stripeEvent.type,
+    processedAt: new Date().toISOString(),
+  });
+
+  if (!claimResponse.errors?.length && claimResponse.data) {
+    return true;
+  }
+
+  const existingEvent = await client.models.PaymentEvent.get({
+    eventId: stripeEvent.id,
+  });
+
+  if (existingEvent.data) {
+    return false;
+  }
+
+  throw new Error(`Could not claim Stripe event ${stripeEvent.id}.`);
+}
+
+async function markEventProcessed(
   stripeEvent: Stripe.Event,
   orderId: string | undefined,
 ) {
-  await client.models.PaymentEvent.create({
+  const updateResponse = await client.models.PaymentEvent.update({
     eventId: stripeEvent.id,
     eventType: stripeEvent.type,
     orderId,
     processedAt: new Date().toISOString(),
   });
+
+  if (updateResponse.errors?.length) {
+    throw new Error(`Could not record Stripe event ${stripeEvent.id}.`);
+  }
+}
+
+async function releaseEventClaim(stripeEvent: Stripe.Event) {
+  const deleteResponse = await client.models.PaymentEvent.delete({
+    eventId: stripeEvent.id,
+  });
+
+  if (deleteResponse.errors?.length) {
+    console.error(
+      `Could not release failed Stripe event ${stripeEvent.id}:`,
+      deleteResponse.errors,
+    );
+  }
 }
 
 export const handler = async (
@@ -636,19 +714,26 @@ export const handler = async (
     return response(400, "Invalid Stripe signature.");
   }
 
-  const existingEvent = await client.models.PaymentEvent.get({
-    eventId: stripeEvent.id,
-  });
-
-  if (existingEvent.data) {
-    return response(200, "Already processed.");
-  }
+  let eventClaimed = false;
 
   try {
+    eventClaimed = await claimEvent(stripeEvent);
+
+    if (!eventClaimed) {
+      return response(200, "Already processed.");
+    }
+
     let orderId: string | undefined;
 
-    if (
-      stripeEvent.type === "checkout.session.completed" ||
+    if (stripeEvent.type === "checkout.session.completed") {
+      const checkoutSession =
+        stripeEvent.data.object as Stripe.Checkout.Session;
+
+      orderId =
+        checkoutSession.payment_status === "paid"
+          ? await markSessionPaid(checkoutSession)
+          : checkoutSession.metadata?.orderId;
+    } else if (
       stripeEvent.type === "checkout.session.async_payment_succeeded"
     ) {
       orderId = await markSessionPaid(
@@ -668,9 +753,14 @@ export const handler = async (
       );
     }
 
-    await recordProcessedEvent(stripeEvent, orderId);
+    await markEventProcessed(stripeEvent, orderId);
   } catch (error) {
     console.error(`Failed to process Stripe event ${stripeEvent.id}:`, error);
+
+    if (eventClaimed) {
+      await releaseEventClaim(stripeEvent);
+    }
+
     return response(500, "Webhook processing failed.");
   }
 

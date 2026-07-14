@@ -78,7 +78,11 @@ function Navbar({ basketItemCount }: NavbarProps) {
         </Link>
 
         <div className="nav-actions">
-          <Link to="/account" className="nav-icon-button" aria-label="Account">
+          <Link
+            to="/account"
+            className="nav-icon-button nav-account-button"
+            aria-label="Account"
+          >
             <UserRound aria-hidden="true" />
           </Link>
 

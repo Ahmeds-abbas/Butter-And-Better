@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { dataClient } from "../lib/amplifyClient";
 import { formatCurrencyFromPence } from "../lib/checkoutCalculations";
+import { useBasket } from "../hooks/useBasket";
 
 type CheckoutSessionStatus = {
   orderId?: string | null;
@@ -18,8 +19,28 @@ const fulfilmentLabels: Record<string, string> = {
   nationwide: "UK tracked delivery",
   collection: "Pickup",
 };
+const verificationIntervalInMilliseconds = 2_000;
+const maxVerificationAttempts = 15;
+const finalPaymentStatuses = new Set(["paid", "failed", "refunded"]);
+
+function formatPaymentStatus(paymentStatus: string | null | undefined) {
+  if (paymentStatus === "paid") {
+    return "Paid";
+  }
+
+  if (paymentStatus === "failed") {
+    return "Payment failed";
+  }
+
+  if (paymentStatus === "refunded") {
+    return "Refunded";
+  }
+
+  return "Processing";
+}
 
 function CheckoutSuccessPage() {
+  const { clearBasket } = useBasket();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get("session_id");
   const [sessionStatus, setSessionStatus] =
@@ -29,8 +50,9 @@ function CheckoutSuccessPage() {
 
   useEffect(() => {
     let isCancelled = false;
+    let retryTimer: number | undefined;
 
-    async function verifySession() {
+    async function verifySession(attempt = 1) {
       if (!sessionId) {
         setLoadError("Stripe Checkout did not return a session ID.");
         setIsLoading(false);
@@ -52,28 +74,51 @@ function CheckoutSuccessPage() {
 
         if (!isCancelled) {
           setSessionStatus(response.data);
+          setLoadError("");
+          setIsLoading(false);
+
+          if (
+            !finalPaymentStatuses.has(response.data.paymentStatus) &&
+            attempt < maxVerificationAttempts
+          ) {
+            retryTimer = window.setTimeout(
+              () => void verifySession(attempt + 1),
+              verificationIntervalInMilliseconds,
+            );
+          }
         }
       } catch (error) {
         console.error("Failed to verify checkout session:", error);
 
         if (!isCancelled) {
-          setLoadError(
-            "We could not verify this payment yet. Please refresh in a moment.",
-          );
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsLoading(false);
+          if (attempt < maxVerificationAttempts) {
+            retryTimer = window.setTimeout(
+              () => void verifySession(attempt + 1),
+              verificationIntervalInMilliseconds,
+            );
+          } else {
+            setLoadError(
+              "We could not verify this payment yet. Please refresh in a moment.",
+            );
+            setIsLoading(false);
+          }
         }
       }
     }
 
-    void Promise.resolve().then(verifySession);
+    void verifySession();
 
     return () => {
       isCancelled = true;
+      window.clearTimeout(retryTimer);
     };
   }, [sessionId]);
+
+  useEffect(() => {
+    if (sessionStatus?.paymentStatus === "paid") {
+      clearBasket();
+    }
+  }, [clearBasket, sessionStatus?.paymentStatus]);
 
   return (
     <main className="page">
@@ -104,11 +149,7 @@ function CheckoutSuccessPage() {
 
               <div>
                 <dt>Payment status</dt>
-                <dd>
-                  {sessionStatus.paymentStatus === "paid"
-                    ? "Paid"
-                    : "Processing"}
-                </dd>
+                <dd>{formatPaymentStatus(sessionStatus.paymentStatus)}</dd>
               </div>
 
               <div>
