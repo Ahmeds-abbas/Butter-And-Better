@@ -26,6 +26,7 @@ type AdminProduct = {
   name: string;
   slug: string;
   category: string;
+  merchandisingLabel: string;
   description: string;
   imageKey: string;
   imageAltText: string;
@@ -67,6 +68,7 @@ type VariantDraft = {
 type ProductDraft = {
   name: string;
   category: string;
+  merchandisingLabel: string;
   description: string;
   imageKey: string;
   imageAltText: string;
@@ -100,6 +102,7 @@ type NewProductDraft = {
   id: string;
   name: string;
   category: string;
+  merchandisingLabel: string;
   description: string;
   imageKey: string;
   imageAltText: string;
@@ -217,6 +220,7 @@ function createDraftFromProduct(product: AdminProduct): ProductDraft {
   return {
     name: product.name,
     category: product.category,
+    merchandisingLabel: product.merchandisingLabel,
     description: product.description,
     imageKey: product.imageKey,
     imageAltText: product.imageAltText,
@@ -247,6 +251,7 @@ function createBlankProductDraft(): NewProductDraft {
     id: createId("product"),
     name: "",
     category: "",
+    merchandisingLabel: "",
     description: "",
     imageKey: "",
     imageAltText: "",
@@ -353,6 +358,7 @@ function AdminPage() {
             name: product.name,
             slug: product.slug,
             category: product.category,
+            merchandisingLabel: product.merchandisingLabel ?? "",
             description: product.description ?? "",
             imageKey: product.imageKey ?? "",
             imageAltText: product.imageAltText ?? "",
@@ -517,6 +523,7 @@ function AdminPage() {
         name: product.name,
         slug: product.slug,
         category: product.category,
+        merchandisingLabel: normalizeOptionalText(product.merchandisingLabel),
         description: product.description,
         imageKey: product.imageKey,
         imageAltText: product.imageAltText,
@@ -1162,6 +1169,9 @@ function AdminPage() {
         name: productDraft.name.trim(),
         slug: product.slug,
         category: productDraft.category.trim(),
+        merchandisingLabel: normalizeOptionalText(
+          productDraft.merchandisingLabel,
+        ),
         description: productDraft.description.trim(),
         imageKey: normalizeOptionalText(productDraft.imageKey),
         imageAltText: normalizeOptionalText(productDraft.imageAltText),
@@ -1236,6 +1246,7 @@ function AdminPage() {
         ...product,
         name: productDraft.name.trim(),
         category: productDraft.category.trim(),
+        merchandisingLabel: productDraft.merchandisingLabel,
         description: productDraft.description.trim(),
         imageKey: productDraft.imageKey.trim(),
         imageAltText: productDraft.imageAltText.trim(),
@@ -1470,6 +1481,9 @@ function AdminPage() {
         slug: productSlug,
         description: newProductDraft.description.trim(),
         category: newProductDraft.category.trim(),
+        merchandisingLabel: normalizeOptionalText(
+          newProductDraft.merchandisingLabel,
+        ),
         imageKey: normalizeOptionalText(newProductDraft.imageKey),
         imageAltText: normalizeOptionalText(newProductDraft.imageAltText),
         galleryImageUrls: normalizeOptionalText(newProductDraft.galleryImageUrls),
@@ -1531,6 +1545,7 @@ function AdminPage() {
         name: newProductDraft.name.trim(),
         slug: productSlug,
         category: newProductDraft.category.trim(),
+        merchandisingLabel: newProductDraft.merchandisingLabel,
         description: newProductDraft.description.trim(),
         imageKey: newProductDraft.imageKey.trim(),
         imageAltText: newProductDraft.imageAltText.trim(),
@@ -1756,6 +1771,24 @@ function AdminPage() {
                       {createValidationMessages.category}
                     </p>
                   )}
+                </label>
+
+                <label>
+                  <span>Shop label</span>
+                  <select
+                    value={newProductDraft.merchandisingLabel}
+                    disabled={isCreatingProduct}
+                    onChange={(event) =>
+                      updateNewProductDraft(
+                        "merchandisingLabel",
+                        event.target.value,
+                      )
+                    }
+                  >
+                    <option value="">None</option>
+                    <option value="Best Seller">Best Seller</option>
+                    <option value="New Drop">New Drop</option>
+                  </select>
                 </label>
 
                 <label className="admin-edit-wide">
@@ -2420,6 +2453,24 @@ function AdminPage() {
                             updateProductDraft("category", event.target.value)
                           }
                         />
+                      </label>
+
+                      <label>
+                        <span>Shop label</span>
+                        <select
+                          value={productDraft.merchandisingLabel}
+                          disabled={savingProductId === product.id}
+                          onChange={(event) =>
+                            updateProductDraft(
+                              "merchandisingLabel",
+                              event.target.value,
+                            )
+                          }
+                        >
+                          <option value="">None</option>
+                          <option value="Best Seller">Best Seller</option>
+                          <option value="New Drop">New Drop</option>
+                        </select>
                       </label>
 
                       <label className="admin-edit-wide">

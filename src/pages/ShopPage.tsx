@@ -5,6 +5,7 @@ import AnnouncementTicker from "../components/marketing/AnnouncementTicker";
 import ProductCard from "../components/products/ProductCard";
 import { dataClient } from "../lib/amplifyClient";
 import {
+  getProductImageUrl,
   getProductImageAltText,
   resolveProductGalleryImages,
   resolveProductImageUrl,
@@ -131,6 +132,11 @@ function ShopPage() {
                 galleryImageUrls,
                 videoUrl,
                 category: product.category as Product["category"],
+                merchandisingLabel:
+                  product.merchandisingLabel === "Best Seller" ||
+                  product.merchandisingLabel === "New Drop"
+                    ? product.merchandisingLabel
+                    : undefined,
                 available: product.isActive,
                 variants,
                 deliveryOptions: {
@@ -235,15 +241,16 @@ function ShopPage() {
     <main className="page">
       <section className="page-header shop-page-header">
         <div>
-          <p className="eyebrow">Our menu</p>
-          <h1>Shop all bakes</h1>
-          <p>
-            Image-first treats, clear fulfilment labels and quick add for the
-            fastest route to a Butter & Better box.
-          </p>
+          <h1>Our menu</h1>
         </div>
-        <div className="media-placeholder shop-header-media">
-          <span>Product photo coming soon</span>
+        <div className="shop-header-media">
+          <img
+            src={products[0]?.imageUrl ?? getProductImageUrl("")}
+            alt={
+              products[0]?.imageAltText ??
+              "Butter and Better featured menu product"
+            }
+          />
         </div>
       </section>
 

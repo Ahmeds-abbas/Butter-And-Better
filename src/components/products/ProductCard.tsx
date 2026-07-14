@@ -16,15 +16,7 @@ function ProductCard({ product }: ProductCardProps) {
     ...product.variants.map((variant) => variant.price),
   );
   const defaultVariant = product.variants[0];
-  const deliveryLabel = product.deliveryOptions.nationwide
-    ? "Delivery available"
-    : "Pickup only";
-  const launchLabel =
-    product.category === "Banana Pudding"
-      ? "Freshly baked"
-      : product.category === "Cookies"
-        ? "Best seller"
-        : "New drop";
+  const isPickupOnly = !product.deliveryOptions.nationwide;
 
   function handleQuickAdd() {
     if (!defaultVariant) {
@@ -51,12 +43,20 @@ function ProductCard({ product }: ProductCardProps) {
           alt={product.imageAltText}
           className="product-card-image"
         />
-        <div className="product-card-badges">
-          <span className="product-badge">{launchLabel}</span>
-          <span className="product-badge product-badge-light">
-            {deliveryLabel}
-          </span>
-        </div>
+        {(product.merchandisingLabel || isPickupOnly) && (
+          <div className="product-card-badges">
+            {product.merchandisingLabel && (
+              <span className="product-badge">
+                {product.merchandisingLabel}
+              </span>
+            )}
+            {isPickupOnly && (
+              <span className="product-badge product-badge-light">
+                Pickup only
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="product-card-content">

@@ -50,6 +50,7 @@ const schema = a.schema({
       slug: a.string().required(),
       description: a.string(),
       category: a.string().required(),
+      merchandisingLabel: a.string(),
       imageKey: a.string(),
       imageAltText: a.string(),
       galleryImageUrls: a.string(),

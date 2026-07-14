@@ -16,9 +16,8 @@ function BasketPage() {
     return (
       <main className="page">
         <section className="empty-basket">
-          <p className="eyebrow">Your basket</p>
-          <h1>Your basket is empty</h1>
-          <p>Add some Butter & Better treats before continuing.</p>
+          <h1>Your basket</h1>
+          <p>Your basket is empty.</p>
 
           <Link to="/shop" className="primary-button">
             Browse the menu
@@ -31,14 +30,7 @@ function BasketPage() {
   return (
     <main className="page">
       <section className="basket-header">
-        <div>
-          <p className="eyebrow">Your order</p>
-          <h1>Shopping basket</h1>
-          <p>
-            Review your treats before choosing free pickup or UK tracked
-            delivery at checkout.
-          </p>
-        </div>
+        <h1>Your basket</h1>
 
         <button
           type="button"

@@ -3,6 +3,7 @@ import { Sparkles, Star } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import SiteFooter from "../components/layout/SiteFooter";
 import SocialMediaPlaceholderGrid from "../components/marketing/SocialMediaPlaceholderGrid";
 import FeaturedProductCampaignCard from "../components/products/FeaturedProductCampaignCard";
 import { dataClient } from "../lib/amplifyClient";
@@ -80,6 +81,11 @@ function HomePage() {
               galleryImageUrls,
               videoUrl,
               category: product.category as Product["category"],
+              merchandisingLabel:
+                product.merchandisingLabel === "Best Seller" ||
+                product.merchandisingLabel === "New Drop"
+                  ? product.merchandisingLabel
+                  : undefined,
               available: product.isActive,
               variants: variants.data
                 .filter((variant) => variant.isActive)
@@ -144,7 +150,8 @@ function HomePage() {
     }));
 
   return (
-    <main className="home-page">
+    <>
+      <main className="home-page">
       <section
         className={`home-main-hero ${hasHeroImage ? "" : "home-main-hero-no-image"}`}
         aria-labelledby={isLoading ? undefined : "home-hero-title"}
@@ -241,14 +248,17 @@ function HomePage() {
       </section>
 
       <SocialMediaPlaceholderGrid moments={photoMoments} />
+      </main>
 
-      <section className="home-final-cta home-content-block">
-        <p className="eyebrow">Butter &amp; Better</p>
-        <h2>ready for something better?</h2>
-        <p>Browse the latest small-batch menu at butterandbetter.co.uk.</p>
-        <Link to="/shop" className="primary-button">Explore Our Menu</Link>
-      </section>
-    </main>
+      <div className="home-closing-block">
+        <section className="home-final-cta">
+          <p className="eyebrow">Butter &amp; Better</p>
+          <h2>ready for something better?</h2>
+          <Link to="/shop" className="primary-button">Explore Our Menu</Link>
+        </section>
+        <SiteFooter />
+      </div>
+    </>
   );
 }
 

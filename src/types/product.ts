@@ -5,6 +5,8 @@ export type ProductCategory =
   | "Blondies"
   | "Banana Pudding";
 
+export type ProductMerchandisingLabel = "Best Seller" | "New Drop";
+
 export type ProductVariant = {
   id: string;
   name: string;
@@ -26,6 +28,7 @@ export type Product = {
   galleryImageUrls: string[];
   videoUrl: string;
   category: ProductCategory;
+  merchandisingLabel?: ProductMerchandisingLabel;
   available: boolean;
   variants: ProductVariant[];
   deliveryOptions: DeliveryOptions;

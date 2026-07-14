@@ -126,6 +126,11 @@ function ProductPage() {
           galleryImageUrls,
           videoUrl,
           category: backendProduct.category as Product["category"],
+          merchandisingLabel:
+            backendProduct.merchandisingLabel === "Best Seller" ||
+            backendProduct.merchandisingLabel === "New Drop"
+              ? backendProduct.merchandisingLabel
+              : undefined,
           available: backendProduct.isActive,
           variants: variantResponse.data
             .filter((variant) => variant.isActive)
