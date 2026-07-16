@@ -140,7 +140,13 @@ The public production domain is `www.butterandbetter.co.uk`, with the apex domai
 
 In Amplify Hosting, open the app, choose **Hosting > Custom domains**, add `butterandbetter.co.uk`, and follow the displayed DNS verification instructions at the domain registrar. Keep the apex-to-`www` redirect so there is a single canonical URL. Do not change the checkout redirect code: it uses the browser origin and will automatically use the custom domain after DNS and the Amplify certificate are active.
 
-The React app also requires a Hosting rewrite from `/<*>` to `/index.html` with status `200`. Without this SPA rewrite, direct visits and refreshes on `/shop`, `/account`, `/admin`, and checkout return routes will respond with 404.
+The React app requires an Amplify Hosting SPA rewrite to `/index.html` with status `200`, but the rule must exclude static file extensions. Use this AWS-supported source expression:
+
+```text
+</^[^.]+$|\.(?!(css|gif|ico|jpg|js|png|txt|svg|woff|woff2|ttf|map|json|webp)$)([^.]+$)/>
+```
+
+Do not use `/<*>` for the SPA rewrite. That rule also rewrites JavaScript, CSS, fonts, and images to `index.html`, which prevents the application from loading. The root `customHttp.yml` keeps mutable HTML uncached while allowing fingerprinted files under `/assets/` to be cached safely.
 
 `amplify_outputs.json` is generated per environment and is intentionally ignored by git. Local sandbox output should not be committed; Amplify Hosting/pipeline deployment provides environment-specific outputs for the deployed branch.
 
