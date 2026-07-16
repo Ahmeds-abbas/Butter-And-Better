@@ -641,6 +641,25 @@ type RetryCheckoutEvent = Parameters<
   Schema["retryCheckoutSession"]["functionHandler"]
 >[0];
 
+function getCheckoutOperationName(
+  event: CreateCheckoutEvent | RetryCheckoutEvent,
+) {
+  if (event.info?.fieldName === "retryCheckoutSession") {
+    return "retryCheckoutSession";
+  }
+
+  if (event.info?.fieldName === "createCheckoutSession") {
+    return "createCheckoutSession";
+  }
+
+  const argumentsValue = event.arguments as Record<string, unknown>;
+
+  return typeof argumentsValue.orderId === "string" &&
+    typeof argumentsValue.checkoutAccessToken === "string"
+    ? "retryCheckoutSession"
+    : "createCheckoutSession";
+}
+
 async function startCheckout(event: CreateCheckoutEvent) {
   const argumentsValue = event.arguments as Record<string, unknown>;
   const safeOrigin = requireSafeOrigin(
@@ -767,7 +786,7 @@ async function retryCheckout(event: RetryCheckoutEvent) {
 export const handler = async (
   event: CreateCheckoutEvent | RetryCheckoutEvent,
 ) => {
-  if (event.info.fieldName === "retryCheckoutSession") {
+  if (getCheckoutOperationName(event) === "retryCheckoutSession") {
     return retryCheckout(event as RetryCheckoutEvent);
   }
 
