@@ -136,11 +136,15 @@ Checkout redirect URLs are environment-aware. The browser sends its current `win
 
 ## Custom domain
 
-The public production domain is `butterandbetter.co.uk`. Canonical browser metadata is already configured for `https://butterandbetter.co.uk/`; DNS remains a manual deployment step.
+The public production domain is `www.butterandbetter.co.uk`, with the apex domain redirecting to `www`. Canonical browser metadata is configured for `https://www.butterandbetter.co.uk/`; DNS remains a manual deployment step.
 
-In Amplify Hosting, open the app, choose **Hosting > Custom domains**, add `butterandbetter.co.uk`, and follow the displayed DNS verification instructions at the domain registrar. Add the `www` subdomain if required and redirect one hostname to the other so there is a single canonical URL. Do not change the checkout redirect code: it uses the browser origin and will automatically use the custom domain after DNS and the Amplify certificate are active.
+In Amplify Hosting, open the app, choose **Hosting > Custom domains**, add `butterandbetter.co.uk`, and follow the displayed DNS verification instructions at the domain registrar. Keep the apex-to-`www` redirect so there is a single canonical URL. Do not change the checkout redirect code: it uses the browser origin and will automatically use the custom domain after DNS and the Amplify certificate are active.
+
+The React app also requires a Hosting rewrite from `/<*>` to `/index.html` with status `200`. Without this SPA rewrite, direct visits and refreshes on `/shop`, `/account`, `/admin`, and checkout return routes will respond with 404.
 
 `amplify_outputs.json` is generated per environment and is intentionally ignored by git. Local sandbox output should not be committed; Amplify Hosting/pipeline deployment provides environment-specific outputs for the deployed branch.
+
+The public checkout-success query currently uses an AppSync API key. It is configured for the AWS maximum lifetime of 365 days; schedule a backend deployment or API-key rotation before it expires so checkout verification does not start returning 401 responses.
 
 Stripe local test flow:
 
@@ -172,8 +176,9 @@ Stripe local test flow:
 
 Payment notes:
 
-- The browser creates pending `Order` and `OrderItem` records, then asks the backend to create a Stripe Checkout Session.
-- The backend reloads the stored order and items, verifies totals, creates the Checkout Session, and stores the session ID.
+- The browser submits customer details plus product IDs, variant IDs, and quantities to the checkout backend. It cannot create `Order`, `OrderItem`, or `CustomerProfile` records directly.
+- The backend validates customer input, reloads current catalogue prices and delivery flags, initializes signed-in loyalty profiles at zero, calculates all totals in pence, and creates the pending order and items.
+- The backend creates the Stripe Checkout Session and stores its session ID. Cancelled orders can only be retried with their server-generated access token.
 - Only the Stripe webhook marks an order `paid`.
 - The success page verifies the Checkout Session but does not mark payment as paid.
 - Loyalty settlement runs only from the Stripe webhook after a verified paid payment.

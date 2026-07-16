@@ -23,6 +23,27 @@ const schema = a.schema({
   createCheckoutSession: a
     .mutation()
     .arguments({
+      items: a.json().required(),
+      firstName: a.string().required(),
+      lastName: a.string().required(),
+      customerEmail: a.string().required(),
+      customerPhone: a.string().required(),
+      fulfilmentMethod: a.string().required(),
+      addressLine1: a.string(),
+      addressLine2: a.string(),
+      city: a.string(),
+      postcode: a.string(),
+      customerNotes: a.string(),
+      redeemReward: a.boolean().required(),
+      origin: a.string().required(),
+    })
+    .returns(a.ref("CheckoutSessionResponse"))
+    .authorization((allow) => [allow.guest(), allow.authenticated()])
+    .handler(a.handler.function(createCheckoutSession)),
+
+  retryCheckoutSession: a
+    .mutation()
+    .arguments({
       orderId: a.id().required(),
       checkoutAccessToken: a.string().required(),
       origin: a.string().required(),
@@ -133,8 +154,7 @@ const schema = a.schema({
       items: a.hasMany("OrderItem", "orderId"),
     })
     .authorization((allow) => [
-      allow.guest().to(["create"]),
-      allow.owner().to(["create", "read"]),
+      allow.owner().to(["read"]),
       allow.group("Admin"),
     ]),
 
@@ -153,8 +173,7 @@ const schema = a.schema({
       lineTotalInPence: a.integer().required(),
     })
     .authorization((allow) => [
-      allow.guest().to(["create"]),
-      allow.owner().to(["create", "read"]),
+      allow.owner().to(["read"]),
       allow.group("Admin"),
     ]),
 
@@ -181,7 +200,7 @@ const schema = a.schema({
       availableRewards: a.integer().required(),
     })
     .authorization((allow) => [
-      allow.owner().to(["create", "read"]),
+      allow.owner().to(["read"]),
       allow.group("Admin"),
     ]),
 }).authorization((allow) => [
@@ -197,7 +216,7 @@ export const data = defineData({
   authorizationModes: {
     defaultAuthorizationMode: "identityPool",
     apiKeyAuthorizationMode: {
-      expiresInDays: 30,
+      expiresInDays: 365,
     },
   },
 });

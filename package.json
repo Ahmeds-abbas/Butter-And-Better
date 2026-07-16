@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "test": "tsx --test src/lib/checkoutCalculations.test.ts src/lib/loyalty.test.ts src/lib/basketValidation.test.ts amplify/functions/create-checkout-session/validation.test.ts amplify/functions/stripe-webhook/email.test.ts",
+    "test": "tsx --test src/lib/checkoutCalculations.test.ts src/lib/loyalty.test.ts src/lib/basketValidation.test.ts src/lib/securityBoundary.test.ts amplify/functions/create-checkout-session/validation.test.ts amplify/functions/stripe-webhook/email.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

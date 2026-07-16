@@ -11,10 +11,6 @@ import {
   stampsPerReward,
 } from "../lib/loyalty";
 
-type CustomerProfileCreateInput = Parameters<
-  typeof dataClient.models.CustomerProfile.create
->[0];
-
 type LoyaltyProfile = {
   loyaltyStamps: number;
   loyaltyRemainderInPence: number;
@@ -32,7 +28,7 @@ async function getSignedInProfileId() {
   return userSub;
 }
 
-async function loadOrCreateLoyaltyProfile() {
+async function loadLoyaltyProfile() {
   const profileId = await getSignedInProfileId();
   const existingProfile = await dataClient.models.CustomerProfile.get(
     { id: profileId },
@@ -47,25 +43,10 @@ async function loadOrCreateLoyaltyProfile() {
     } satisfies LoyaltyProfile;
   }
 
-  const profileInput = {
-    id: profileId,
+  return {
     loyaltyStamps: 0,
     loyaltyRemainderInPence: 0,
     availableRewards: 0,
-  } as unknown as CustomerProfileCreateInput;
-  const createdProfile = await dataClient.models.CustomerProfile.create(
-    profileInput,
-    { authMode: "userPool" },
-  );
-
-  if (createdProfile.errors?.length || !createdProfile.data) {
-    throw new Error("Could not create your loyalty profile.");
-  }
-
-  return {
-    loyaltyStamps: createdProfile.data.loyaltyStamps,
-    loyaltyRemainderInPence: createdProfile.data.loyaltyRemainderInPence,
-    availableRewards: createdProfile.data.availableRewards,
   } satisfies LoyaltyProfile;
 }
 
@@ -153,7 +134,7 @@ function AccountLoyaltySection() {
 
     async function loadProfile() {
       try {
-        const nextProfile = await loadOrCreateLoyaltyProfile();
+        const nextProfile = await loadLoyaltyProfile();
 
         if (!isCancelled) {
           setProfile(nextProfile);

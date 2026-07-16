@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { validateCheckoutOrder } from "./validation";
+import {
+  validateCheckoutOrder,
+  validateCheckoutRequest,
+} from "./validation";
 
 function createValidInput() {
   return {
@@ -91,4 +94,46 @@ test("pickup remains available and free", () => {
 
   assert.equal(result.deliveryFeeInPence, 0);
   assert.equal(result.totalInPence, 800);
+});
+
+test("backend checkout derives prices and totals from catalogue data", () => {
+  const input = createValidInput();
+  const result = validateCheckoutRequest({
+    fulfilmentMethod: "nationwide",
+    addressLine1: "1 Bakery Street",
+    city: "Manchester",
+    postcode: "M1 1AA",
+    redeemReward: true,
+    items: [
+      {
+        productId: "product-1",
+        variantId: "variant-1",
+        quantity: 1,
+      },
+    ],
+    catalogueItems: input.catalogueItems,
+  });
+
+  assert.equal(result.subtotalInPence, 800);
+  assert.equal(result.deliveryFeeInPence, 299);
+  assert.equal(result.rewardDiscountInPence, 500);
+  assert.equal(result.totalInPence, 599);
+});
+
+test("backend checkout rejects duplicate variants", () => {
+  const input = createValidInput();
+
+  assert.throws(
+    () =>
+      validateCheckoutRequest({
+        fulfilmentMethod: "collection",
+        redeemReward: false,
+        items: [
+          { productId: "product-1", variantId: "variant-1", quantity: 1 },
+          { productId: "product-1", variantId: "variant-1", quantity: 1 },
+        ],
+        catalogueItems: [input.catalogueItems[0], input.catalogueItems[0]],
+      }),
+    /duplicate/i,
+  );
 });

@@ -36,7 +36,7 @@ function ContactPage() {
       </section>
 
       <section className="contact-credits" aria-label="Site credits">
-        <p>Owned by <strong>Sarah Zain</strong></p>
+        <p>Owned by <strong>Sarah Zein</strong></p>
         <a
           href="https://github.com/Ahmeds-abbas"
           target="_blank"

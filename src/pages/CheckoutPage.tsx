@@ -15,9 +15,6 @@ import {
 import { dataClient } from "../lib/amplifyClient";
 import { formatGBP } from "../lib/currency";
 import {
-  createCheckoutOrder,
-} from "../lib/orderCreation";
-import {
   calculateLoyaltySettlement,
   formatLoyaltyCurrency,
   rewardValueInPence,
@@ -66,9 +63,7 @@ const ukPostcodePattern = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
 
 type CheckoutFieldName = keyof CheckoutFormData;
 type ProductReadAuthMode = "userPool" | "iam";
-type CustomerProfileCreateInput = Parameters<
-  typeof dataClient.models.CustomerProfile.create
->[0];
+type CheckoutAuthMode = "userPool" | "iam";
 type CheckoutLoyaltyProfile = {
   loyaltyStamps: number;
   loyaltyRemainderInPence: number;
@@ -87,6 +82,20 @@ async function getProductReadAuthModes(): Promise<ProductReadAuthMode[]> {
   }
 
   return ["iam", "userPool"];
+}
+
+async function getCheckoutAuthMode(): Promise<CheckoutAuthMode> {
+  try {
+    const session = await fetchAuthSession();
+
+    if (session.tokens?.accessToken) {
+      return "userPool";
+    }
+  } catch {
+    // Guest checkout uses the unauthenticated identity pool role.
+  }
+
+  return "iam";
 }
 
 async function getProductWithFallback(productId: string) {
@@ -138,25 +147,10 @@ async function loadSignedInLoyaltyProfile() {
     } satisfies CheckoutLoyaltyProfile;
   }
 
-  const profileInput = {
-    id: userSub,
+  return {
     loyaltyStamps: 0,
     loyaltyRemainderInPence: 0,
     availableRewards: 0,
-  } as unknown as CustomerProfileCreateInput;
-  const createdProfile = await dataClient.models.CustomerProfile.create(
-    profileInput,
-    { authMode: "userPool" },
-  );
-
-  if (createdProfile.errors?.length || !createdProfile.data) {
-    throw new Error("Could not prepare your loyalty profile.");
-  }
-
-  return {
-    loyaltyStamps: createdProfile.data.loyaltyStamps,
-    loyaltyRemainderInPence: createdProfile.data.loyaltyRemainderInPence,
-    availableRewards: createdProfile.data.availableRewards,
   } satisfies CheckoutLoyaltyProfile;
 }
 
@@ -551,21 +545,29 @@ function CheckoutPage() {
     setOrderMessage("");
 
     try {
-      const nextOrder = await createCheckoutOrder(
-        {
-          ...formData,
-          redeemReward: effectiveRedeemReward,
-        },
-        basketItems,
-      );
+      const authMode = await getCheckoutAuthMode();
       const sessionResponse = await dataClient.mutations.createCheckoutSession(
         {
-          orderId: nextOrder.id,
-          checkoutAccessToken: nextOrder.checkoutAccessToken,
+          items: basketItems.map((item) => ({
+            productId: item.productId,
+            variantId: item.variantId,
+            quantity: item.quantity,
+          })),
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          customerEmail: formData.email,
+          customerPhone: formData.phone,
+          fulfilmentMethod: formData.fulfilmentMethod,
+          addressLine1: formData.addressLine1 || null,
+          addressLine2: formData.addressLine2 || null,
+          city: formData.city || null,
+          postcode: formData.postcode || null,
+          customerNotes: formData.orderNotes || null,
+          redeemReward: effectiveRedeemReward,
           origin: window.location.origin,
         },
         {
-          authMode: nextOrder.authMode,
+          authMode,
         },
       );
 

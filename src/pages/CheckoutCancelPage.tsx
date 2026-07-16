@@ -36,7 +36,7 @@ function CheckoutCancelPage() {
 
     try {
       const authMode = await getCheckoutAuthMode();
-      const response = await dataClient.mutations.createCheckoutSession(
+      const response = await dataClient.mutations.retryCheckoutSession(
         {
           orderId,
           checkoutAccessToken,

@@ -26,7 +26,7 @@ type CheckoutOrderItemSnapshot = {
   lineTotalInPence: number;
 };
 
-type CatalogueItemSnapshot = {
+export type CatalogueItemSnapshot = {
   productId: string;
   variantId: string;
   productName: string;
@@ -39,6 +39,8 @@ type CatalogueItemSnapshot = {
 };
 
 export type ValidatedCheckoutItem = {
+  productId: string;
+  variantId: string;
   productName: string;
   variantName: string;
   unitPriceInPence: number;
@@ -49,6 +51,22 @@ export type ValidatedCheckoutItem = {
 type ValidateCheckoutOrderInput = {
   order: CheckoutOrderSnapshot;
   items: readonly CheckoutOrderItemSnapshot[];
+  catalogueItems: readonly CatalogueItemSnapshot[];
+};
+
+export type CheckoutItemRequest = {
+  productId: string;
+  variantId: string;
+  quantity: number;
+};
+
+type ValidateCheckoutRequestInput = {
+  fulfilmentMethod: string;
+  addressLine1?: string | null;
+  city?: string | null;
+  postcode?: string | null;
+  redeemReward: boolean;
+  items: readonly CheckoutItemRequest[];
   catalogueItems: readonly CatalogueItemSnapshot[];
 };
 
@@ -153,6 +171,8 @@ export function validateCheckoutOrder({
     }
 
     return {
+      productId: catalogueItem.productId,
+      variantId: catalogueItem.variantId,
       productName: catalogueItem.productName,
       variantName: catalogueItem.variantName,
       unitPriceInPence: catalogueItem.unitPriceInPence,
@@ -204,4 +224,80 @@ export function validateCheckoutOrder({
     loyaltySpendInPence,
     totalInPence,
   };
+}
+
+export function validateCheckoutRequest({
+  fulfilmentMethod,
+  addressLine1,
+  city,
+  postcode,
+  redeemReward,
+  items,
+  catalogueItems,
+}: ValidateCheckoutRequestInput) {
+  if (items.length === 0 || items.length > maxCheckoutLineItems) {
+    throw new Error("Order must contain between 1 and 50 items.");
+  }
+
+  if (catalogueItems.length !== items.length) {
+    throw new Error("Order catalogue data is incomplete.");
+  }
+
+  const seenVariants = new Set<string>();
+  const orderItems = items.map((item, index) => {
+    const catalogueItem = catalogueItems[index];
+
+    if (seenVariants.has(item.variantId)) {
+      throw new Error("Duplicate basket variants are not allowed.");
+    }
+
+    seenVariants.add(item.variantId);
+
+    return {
+      productId: item.productId,
+      variantId: item.variantId,
+      productName: catalogueItem.productName,
+      variantName: catalogueItem.variantName,
+      unitPriceInPence: catalogueItem.unitPriceInPence,
+      quantity: item.quantity,
+      lineTotalInPence: catalogueItem.unitPriceInPence * item.quantity,
+    };
+  });
+  const subtotalInPence = orderItems.reduce(
+    (total, item) => total + item.lineTotalInPence,
+    0,
+  );
+  const deliveryFeeInPence =
+    fulfilmentMethod === "nationwide" ? ukTrackedDeliveryFeeInPence : 0;
+  const rewardDiscountInPence = redeemReward
+    ? Math.min(
+        loyaltyRewardValueInPence,
+        subtotalInPence + deliveryFeeInPence,
+      )
+    : 0;
+  const loyaltySpendInPence = Math.max(
+    0,
+    subtotalInPence - rewardDiscountInPence,
+  );
+  const totalInPence = Math.max(
+    0,
+    subtotalInPence + deliveryFeeInPence - rewardDiscountInPence,
+  );
+
+  return validateCheckoutOrder({
+    order: {
+      fulfilmentMethod,
+      addressLine1,
+      city,
+      postcode,
+      subtotalInPence,
+      deliveryFeeInPence,
+      loyaltySpendInPence,
+      stampsEarned: 0,
+      rewardDiscountInPence,
+      totalInPence,
+    },
+    items: orderItems,
+    catalogueItems,
+  });
 }
