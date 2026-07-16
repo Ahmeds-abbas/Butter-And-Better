@@ -286,7 +286,15 @@ export async function createCheckoutOrder(
     refundedAt: null,
     loyaltyProcessedAt: null,
     loyaltySettled: false,
+    customerOrderConfirmationEmailStatus: "PENDING",
+    customerOrderConfirmationEmailLastAttemptAt: null,
+    customerOrderConfirmationEmailError: null,
+    customerOrderConfirmationEmailProviderId: null,
     customerOrderConfirmationEmailSentAt: null,
+    adminOrderNotificationEmailStatus: "PENDING",
+    adminOrderNotificationEmailLastAttemptAt: null,
+    adminOrderNotificationEmailError: null,
+    adminOrderNotificationEmailProviderId: null,
     adminOrderNotificationEmailSentAt: null,
   } as unknown as OrderCreateInput;
 

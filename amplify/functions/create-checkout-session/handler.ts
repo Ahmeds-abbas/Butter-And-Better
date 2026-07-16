@@ -60,9 +60,25 @@ function createOrderUpdateInput(
     refundedAt: changes.refundedAt ?? order.refundedAt,
     loyaltyProcessedAt: changes.loyaltyProcessedAt ?? order.loyaltyProcessedAt,
     loyaltySettled: changes.loyaltySettled ?? order.loyaltySettled,
+    customerOrderConfirmationEmailStatus:
+      order.customerOrderConfirmationEmailStatus,
+    customerOrderConfirmationEmailLastAttemptAt:
+      order.customerOrderConfirmationEmailLastAttemptAt,
+    customerOrderConfirmationEmailError:
+      order.customerOrderConfirmationEmailError,
+    customerOrderConfirmationEmailProviderId:
+      order.customerOrderConfirmationEmailProviderId,
     customerOrderConfirmationEmailSentAt:
       changes.customerOrderConfirmationEmailSentAt ??
       order.customerOrderConfirmationEmailSentAt,
+    adminOrderNotificationEmailStatus:
+      order.adminOrderNotificationEmailStatus,
+    adminOrderNotificationEmailLastAttemptAt:
+      order.adminOrderNotificationEmailLastAttemptAt,
+    adminOrderNotificationEmailError:
+      order.adminOrderNotificationEmailError,
+    adminOrderNotificationEmailProviderId:
+      order.adminOrderNotificationEmailProviderId,
     adminOrderNotificationEmailSentAt:
       changes.adminOrderNotificationEmailSentAt ??
       order.adminOrderNotificationEmailSentAt,

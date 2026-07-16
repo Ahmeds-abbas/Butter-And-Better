@@ -186,13 +186,35 @@ function AdminOrderDetails({
           Loyalty processed: {formatters.formatDateTime(order.loyaltyProcessedAt)}
         </p>
         <p>
+          Customer email: {order.customerOrderConfirmationEmailStatus ?? "Not attempted"}
+        </p>
+        <p>
+          Customer email attempted:{" "}
+          {formatters.formatDateTime(
+            order.customerOrderConfirmationEmailLastAttemptAt,
+          )}
+        </p>
+        <p>
           Customer email sent:{" "}
           {formatters.formatDateTime(order.customerOrderConfirmationEmailSentAt)}
+        </p>
+        {order.customerOrderConfirmationEmailError && (
+          <p>Customer email error: {order.customerOrderConfirmationEmailError}</p>
+        )}
+        <p>
+          Admin email: {order.adminOrderNotificationEmailStatus ?? "Not attempted"}
+        </p>
+        <p>
+          Admin email attempted:{" "}
+          {formatters.formatDateTime(order.adminOrderNotificationEmailLastAttemptAt)}
         </p>
         <p>
           Admin email sent:{" "}
           {formatters.formatDateTime(order.adminOrderNotificationEmailSentAt)}
         </p>
+        {order.adminOrderNotificationEmailError && (
+          <p>Admin email error: {order.adminOrderNotificationEmailError}</p>
+        )}
       </section>
     </section>
   );

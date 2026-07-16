@@ -107,8 +107,24 @@ function createOrderUpdateInput(
     refundedAt: order.refundedAt,
     loyaltyProcessedAt: order.loyaltyProcessedAt,
     loyaltySettled: order.loyaltySettled,
+    customerOrderConfirmationEmailStatus:
+      order.customerOrderConfirmationEmailStatus,
+    customerOrderConfirmationEmailLastAttemptAt:
+      order.customerOrderConfirmationEmailLastAttemptAt,
+    customerOrderConfirmationEmailError:
+      order.customerOrderConfirmationEmailError,
+    customerOrderConfirmationEmailProviderId:
+      order.customerOrderConfirmationEmailProviderId,
     customerOrderConfirmationEmailSentAt:
       order.customerOrderConfirmationEmailSentAt,
+    adminOrderNotificationEmailStatus:
+      order.adminOrderNotificationEmailStatus,
+    adminOrderNotificationEmailLastAttemptAt:
+      order.adminOrderNotificationEmailLastAttemptAt,
+    adminOrderNotificationEmailError:
+      order.adminOrderNotificationEmailError,
+    adminOrderNotificationEmailProviderId:
+      order.adminOrderNotificationEmailProviderId,
     adminOrderNotificationEmailSentAt: order.adminOrderNotificationEmailSentAt,
   } as unknown as OrderUpdateInput;
 }
@@ -179,8 +195,24 @@ async function mapOrder(order: OrderRecord): Promise<AdminOrder> {
     refundedAt: order.refundedAt ?? null,
     loyaltyProcessedAt: order.loyaltyProcessedAt ?? null,
     loyaltySettled: order.loyaltySettled ?? null,
+    customerOrderConfirmationEmailStatus:
+      order.customerOrderConfirmationEmailStatus ?? null,
+    customerOrderConfirmationEmailLastAttemptAt:
+      order.customerOrderConfirmationEmailLastAttemptAt ?? null,
+    customerOrderConfirmationEmailError:
+      order.customerOrderConfirmationEmailError ?? null,
+    customerOrderConfirmationEmailProviderId:
+      order.customerOrderConfirmationEmailProviderId ?? null,
     customerOrderConfirmationEmailSentAt:
       order.customerOrderConfirmationEmailSentAt ?? null,
+    adminOrderNotificationEmailStatus:
+      order.adminOrderNotificationEmailStatus ?? null,
+    adminOrderNotificationEmailLastAttemptAt:
+      order.adminOrderNotificationEmailLastAttemptAt ?? null,
+    adminOrderNotificationEmailError:
+      order.adminOrderNotificationEmailError ?? null,
+    adminOrderNotificationEmailProviderId:
+      order.adminOrderNotificationEmailProviderId ?? null,
     adminOrderNotificationEmailSentAt:
       order.adminOrderNotificationEmailSentAt ?? null,
     createdAt: order.createdAt ?? null,

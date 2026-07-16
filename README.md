@@ -87,7 +87,7 @@ For sandbox development:
 ```powershell
 npx.cmd ampx sandbox secret set STRIPE_SECRET_KEY --profile butter-and-better
 npx.cmd ampx sandbox secret set STRIPE_WEBHOOK_SECRET --profile butter-and-better
-npx.cmd ampx sandbox secret set EMAIL_API_KEY --profile butter-and-better
+npx.cmd ampx sandbox secret set RESEND_API_KEY --profile butter-and-better
 npx.cmd ampx sandbox secret set EMAIL_FROM_ADDRESS --profile butter-and-better
 npx.cmd ampx sandbox secret set ADMIN_NOTIFICATION_EMAIL --profile butter-and-better
 ```
@@ -100,15 +100,15 @@ npx.cmd ampx pipeline-deploy --branch <branch-name> --app-id <amplify-app-id>
 
 ## Staging Deployment
 
-Staging should continue to use Stripe test mode and the Resend test sender unless a verified email domain has been configured.
+Stripe staging should continue to use test mode. The Resend domain `butterandbetter.co.uk` must be verified before the configured order sender can deliver email.
 
 Required Amplify secrets for the staging branch:
 
 - `STRIPE_SECRET_KEY`: Stripe test secret key, for example `sk_test_...`
 - `STRIPE_WEBHOOK_SECRET`: Stripe webhook signing secret for the staging webhook destination
-- `EMAIL_API_KEY`: Resend API key
-- `EMAIL_FROM_ADDRESS`: Resend test sender or verified sender address
-- `ADMIN_NOTIFICATION_EMAIL`: bakery/admin notification recipient
+- `RESEND_API_KEY`: Resend API key
+- `EMAIL_FROM_ADDRESS`: `Butter & Better <orders@butterandbetter.co.uk>`
+- `ADMIN_NOTIFICATION_EMAIL`: `butterandbetterbakery@gmail.com`
 
 Deployment checklist:
 
@@ -178,6 +178,6 @@ Payment notes:
 - The success page verifies the Checkout Session but does not mark payment as paid.
 - Loyalty settlement runs only from the Stripe webhook after a verified paid payment.
 - Order notification emails are sent only after the Stripe webhook verifies a successful paid payment.
-- Email sending uses Amplify secrets and is skipped/retried separately from payment state if delivery fails.
+- Email sending uses Amplify secrets. Each customer/admin delivery is stored as `PENDING`, `SENT`, or `FAILED`; a failed send never changes the paid state.
+- Resending the same verified `checkout.session.completed` event retries only unsent emails. Database sent markers and Resend idempotency keys prevent repeat delivery.
 - Loyalty reversal on refunds is deferred and must be handled manually/admin-side until implemented.
--Push?

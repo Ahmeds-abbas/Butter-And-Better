@@ -5,6 +5,12 @@ import Stripe from "stripe";
 import { env } from "$amplify/env/stripe-webhook";
 import type { Schema } from "../../data/resource";
 import { calculateLoyaltySettlement } from "../../../src/lib/loyalty";
+import {
+  sendAdminOrderNotification,
+  sendCustomerOrderConfirmation,
+  type OrderEmailData,
+  type OrderEmailItem,
+} from "./email";
 
 type FunctionUrlEvent = {
   body: string | null;
@@ -27,16 +33,10 @@ type OrderItemRecord = Awaited<
   ReturnType<Schema["Order"]["type"]["items"]>
 >["data"][number];
 
-type EmailMessage = {
-  to: string;
-  subject: string;
-  text: string;
-  html: string;
-};
-
 const stripe = new Stripe(env.STRIPE_SECRET_KEY);
-const emailApiUrl = "https://api.resend.com/emails";
-const emailApiKey = env.EMAIL_API_KEY;
+const emailApiKey = (
+  env as typeof env & { RESEND_API_KEY: string }
+).RESEND_API_KEY;
 const emailFromAddress = env.EMAIL_FROM_ADDRESS;
 const adminNotificationEmail = env.ADMIN_NOTIFICATION_EMAIL;
 
@@ -74,6 +74,11 @@ function createOrderUpdateInput(
   order: Schema["Order"]["type"],
   changes: Partial<Schema["Order"]["type"]>,
 ) {
+  const changed = <Key extends keyof Schema["Order"]["type"]>(key: Key) =>
+    Object.prototype.hasOwnProperty.call(changes, key)
+      ? changes[key]
+      : order[key];
+
   return {
     id: order.id,
     orderNumber: order.orderNumber,
@@ -106,12 +111,26 @@ function createOrderUpdateInput(
     refundedAt: changes.refundedAt ?? order.refundedAt,
     loyaltyProcessedAt: changes.loyaltyProcessedAt ?? order.loyaltyProcessedAt,
     loyaltySettled: changes.loyaltySettled ?? order.loyaltySettled,
+    customerOrderConfirmationEmailStatus:
+      changed("customerOrderConfirmationEmailStatus"),
+    customerOrderConfirmationEmailLastAttemptAt:
+      changed("customerOrderConfirmationEmailLastAttemptAt"),
+    customerOrderConfirmationEmailError:
+      changed("customerOrderConfirmationEmailError"),
+    customerOrderConfirmationEmailProviderId:
+      changed("customerOrderConfirmationEmailProviderId"),
     customerOrderConfirmationEmailSentAt:
-      changes.customerOrderConfirmationEmailSentAt ??
-      order.customerOrderConfirmationEmailSentAt,
+      changed("customerOrderConfirmationEmailSentAt"),
+    adminOrderNotificationEmailStatus:
+      changed("adminOrderNotificationEmailStatus"),
+    adminOrderNotificationEmailLastAttemptAt:
+      changed("adminOrderNotificationEmailLastAttemptAt"),
+    adminOrderNotificationEmailError:
+      changed("adminOrderNotificationEmailError"),
+    adminOrderNotificationEmailProviderId:
+      changed("adminOrderNotificationEmailProviderId"),
     adminOrderNotificationEmailSentAt:
-      changes.adminOrderNotificationEmailSentAt ??
-      order.adminOrderNotificationEmailSentAt,
+      changed("adminOrderNotificationEmailSentAt"),
   } as unknown as OrderUpdateInput;
 }
 
@@ -125,15 +144,10 @@ async function getOrder(orderId: string) {
   return orderResponse.data;
 }
 
-async function markSessionPaid(session: Stripe.Checkout.Session) {
-  const orderId = session.metadata?.orderId;
-
-  if (!orderId) {
-    throw new Error("Checkout Session is missing order metadata.");
-  }
-
-  const order = await getOrder(orderId);
-
+function verifyPaidSession(
+  session: Stripe.Checkout.Session,
+  order: Schema["Order"]["type"],
+) {
   if (
     session.id !== order.stripeCheckoutSessionId ||
     session.currency !== "gbp" ||
@@ -142,10 +156,72 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
   ) {
     throw new Error(`Checkout Session ${session.id} failed verification.`);
   }
+}
+
+async function hasProcessedCheckoutCompletedEvent(orderId: string) {
+  const eventResponse = await client.models.PaymentEvent.list({
+    filter: {
+      eventType: { eq: "checkout.session.completed" },
+      orderId: { eq: orderId },
+    },
+    limit: 1,
+  });
+
+  if (eventResponse.errors?.length) {
+    throw new Error(
+      `Could not check prior payment events for order ${orderId}.`,
+    );
+  }
+
+  return eventResponse.data.length > 0;
+}
+
+async function markSessionPaid(
+  session: Stripe.Checkout.Session,
+  sendNotifications: boolean,
+) {
+  const orderId = session.metadata?.orderId;
+
+  if (!orderId) {
+    throw new Error("Checkout Session is missing order metadata.");
+  }
+
+  const order = await getOrder(orderId);
+  verifyPaidSession(session, order);
+  const initializeNotificationState =
+    sendNotifications &&
+    !(await hasProcessedCheckoutCompletedEvent(order.id));
 
   if (order.paymentStatus === "paid") {
-    const settledOrder = await settleLoyaltyForPaidOrder(order);
-    await notifyPaidOrder(order.id, settledOrder);
+    let paidOrder = order;
+
+    if (initializeNotificationState) {
+      const resetResponse = await client.models.Order.update(
+        createOrderUpdateInput(order, {
+          customerOrderConfirmationEmailStatus: "PENDING",
+          customerOrderConfirmationEmailLastAttemptAt: null,
+          customerOrderConfirmationEmailError: null,
+          customerOrderConfirmationEmailProviderId: null,
+          customerOrderConfirmationEmailSentAt: null,
+          adminOrderNotificationEmailStatus: "PENDING",
+          adminOrderNotificationEmailLastAttemptAt: null,
+          adminOrderNotificationEmailError: null,
+          adminOrderNotificationEmailProviderId: null,
+          adminOrderNotificationEmailSentAt: null,
+        }),
+      );
+
+      if (resetResponse.errors?.length) {
+        throw new Error(`Could not initialize email state for order ${order.id}.`);
+      }
+
+      paidOrder = resetResponse.data ?? order;
+    }
+
+    const settledOrder = await settleLoyaltyForPaidOrder(paidOrder);
+    if (sendNotifications) {
+      await notifyPaidOrder(order.id, settledOrder);
+    }
     return order.id;
   }
 
@@ -157,6 +233,20 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
     paymentStatus: "paid",
     stripePaymentIntentId: paymentIntentId ?? order.stripePaymentIntentId,
     paidAt: new Date().toISOString(),
+    ...(initializeNotificationState
+      ? {
+          customerOrderConfirmationEmailStatus: "PENDING",
+          customerOrderConfirmationEmailLastAttemptAt: null,
+          customerOrderConfirmationEmailError: null,
+          customerOrderConfirmationEmailProviderId: null,
+          customerOrderConfirmationEmailSentAt: null,
+          adminOrderNotificationEmailStatus: "PENDING",
+          adminOrderNotificationEmailLastAttemptAt: null,
+          adminOrderNotificationEmailError: null,
+          adminOrderNotificationEmailProviderId: null,
+          adminOrderNotificationEmailSentAt: null,
+        }
+      : {}),
   });
 
   const updateResponse = await client.models.Order.update(updateInput);
@@ -168,9 +258,34 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
   const settledOrder = await settleLoyaltyForPaidOrder(
     updateResponse.data ?? order,
   );
-  await notifyPaidOrder(order.id, settledOrder);
+  if (sendNotifications) {
+    await notifyPaidOrder(order.id, settledOrder);
+  }
 
   return order.id;
+}
+
+async function retryPaidOrderNotifications(
+  session: Stripe.Checkout.Session,
+) {
+  const orderId = session.metadata?.orderId;
+
+  if (!orderId) {
+    throw new Error("Checkout Session is missing order metadata.");
+  }
+
+  const order = await getOrder(orderId);
+  verifyPaidSession(session, order);
+
+  if (order.paymentStatus !== "paid") {
+    return;
+  }
+
+  if (order.customerProfileId && !order.loyaltySettled) {
+    return;
+  }
+
+  await notifyPaidOrder(order.id, order);
 }
 
 async function settleLoyaltyForPaidOrder(order: Schema["Order"]["type"]) {
@@ -276,205 +391,256 @@ async function loadOrderItems(order: Schema["Order"]["type"]) {
   );
 }
 
-function formatCurrency(valueInPence: number) {
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format(valueInPence / 100);
-}
+const EMAIL_STATUS_PENDING = "PENDING";
+const EMAIL_STATUS_SENT = "SENT";
+const EMAIL_STATUS_FAILED = "FAILED";
+const requiredEmailFromAddress =
+  "Butter & Better <orders@butterandbetter.co.uk>";
+const requiredAdminNotificationEmail = "butterandbetterbakery@gmail.com";
 
-function formatFulfilmentMethod(value: string) {
-  return value === "collection" ? "Pickup" : "UK tracked delivery";
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function formatAddress(order: Schema["Order"]["type"]) {
-  return [
-    order.addressLine1,
-    order.addressLine2,
-    order.city,
-    order.postcode,
-  ].filter(Boolean);
-}
-
-function buildItemsText(items: OrderItemRecord[]) {
-  return items
-    .map(
-      (item) =>
-        `- ${item.quantity} x ${item.productName} (${item.variantName}) - ${formatCurrency(
-          item.lineTotalInPence,
-        )}`,
-    )
-    .join("\n");
-}
-
-function buildItemsHtml(items: OrderItemRecord[]) {
-  return items
-    .map(
-      (item) =>
-        `<li><strong>${item.quantity} x ${escapeHtml(
-          item.productName,
-        )}</strong><br /><span>${escapeHtml(
-          item.variantName,
-        )} - ${formatCurrency(item.lineTotalInPence)}</span></li>`,
-    )
-    .join("");
-}
-
-function buildEmailHtml(title: string, body: string) {
-  return `
-    <div style="margin:0;padding:24px;background:#F2F0EC;color:#573615;font-family:Arial,sans-serif;">
-      <div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:12px;padding:24px;border:1px solid rgba(87,54,21,0.12);">
-        <p style="margin:0 0 8px;color:#738561;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">Butter &amp; Better</p>
-        <h1 style="margin:0 0 18px;color:#573615;">${escapeHtml(title)}</h1>
-        ${body}
-      </div>
-    </div>
-  `;
-}
-
-function buildCustomerEmail(
-  order: Schema["Order"]["type"],
-  items: OrderItemRecord[],
-): EmailMessage {
-  const fulfilmentMethod = formatFulfilmentMethod(order.fulfilmentMethod);
-  const pickupNote =
-    order.fulfilmentMethod === "collection"
-      ? "Pickup details will be shared after your order is confirmed by Butter & Better."
-      : "";
-  const loyaltyNote = order.customerProfileId
-    ? `Loyalty: ${order.stampsEarned} stamp${
-        order.stampsEarned === 1 ? "" : "s"
-      } earned from this paid order.`
-    : "Loyalty: guest orders do not earn stamps.";
-  const text = [
-    `Thanks for your Butter & Better order ${order.orderNumber}.`,
-    "",
-    "Items:",
-    buildItemsText(items),
-    "",
-    `Fulfilment: ${fulfilmentMethod}`,
-    `Delivery fee: ${formatCurrency(order.deliveryFeeInPence)}`,
-    `Total paid: ${formatCurrency(order.totalInPence)}`,
-    loyaltyNote,
-    pickupNote,
-  ]
-    .filter(Boolean)
-    .join("\n");
-  const html = buildEmailHtml(
-    `Order ${order.orderNumber} confirmed`,
-    `
-      <p>Thanks for your order. Payment has been confirmed.</p>
-      <h2 style="color:#573615;">Items</h2>
-      <ul>${buildItemsHtml(items)}</ul>
-      <p><strong>Fulfilment:</strong> ${escapeHtml(fulfilmentMethod)}</p>
-      <p><strong>Delivery fee:</strong> ${formatCurrency(
-        order.deliveryFeeInPence,
-      )}</p>
-      <p><strong>Total paid:</strong> ${formatCurrency(order.totalInPence)}</p>
-      <p>${escapeHtml(loyaltyNote)}</p>
-      ${
-        pickupNote
-          ? `<p style="color:#738561;"><strong>${escapeHtml(pickupNote)}</strong></p>`
-          : ""
-      }
-    `,
-  );
-
+function toOrderEmailData(order: Schema["Order"]["type"]): OrderEmailData {
   return {
-    to: order.customerEmail,
-    subject: `Butter & Better order ${order.orderNumber} confirmed`,
-    text,
-    html,
+    id: order.id,
+    orderNumber: order.orderNumber,
+    paymentStatus: order.paymentStatus,
+    customerEmail: order.customerEmail,
+    customerPhone: order.customerPhone,
+    firstName: order.firstName,
+    lastName: order.lastName,
+    customerProfileId: order.customerProfileId,
+    fulfilmentMethod: order.fulfilmentMethod,
+    addressLine1: order.addressLine1,
+    addressLine2: order.addressLine2,
+    city: order.city,
+    postcode: order.postcode,
+    customerNotes: order.customerNotes,
+    subtotalInPence: order.subtotalInPence,
+    deliveryFeeInPence: order.deliveryFeeInPence,
+    rewardDiscountInPence: order.rewardDiscountInPence,
+    totalInPence: order.totalInPence,
+    stampsEarned: order.stampsEarned,
   };
 }
 
-function buildAdminEmail(
-  order: Schema["Order"]["type"],
-  items: OrderItemRecord[],
-): EmailMessage {
-  const fulfilmentMethod = formatFulfilmentMethod(order.fulfilmentMethod);
-  const addressLines = formatAddress(order);
-  const fulfilmentDetails =
-    order.fulfilmentMethod === "collection"
-      ? "Pickup order. No delivery address needed."
-      : `Delivery address:\n${addressLines.join("\n")}`;
-  const text = [
-    `Paid order received: ${order.orderNumber}`,
-    "",
-    `Customer: ${order.firstName} ${order.lastName}`,
-    `Email: ${order.customerEmail}`,
-    `Phone: ${order.customerPhone}`,
-    "",
-    "Items:",
-    buildItemsText(items),
-    "",
-    `Fulfilment: ${fulfilmentMethod}`,
-    fulfilmentDetails,
-    `Payment status: ${order.paymentStatus}`,
-    `Total paid: ${formatCurrency(order.totalInPence)}`,
-  ].join("\n");
-  const html = buildEmailHtml(
-    `Paid order ${order.orderNumber}`,
-    `
-      <p><strong>Customer:</strong> ${escapeHtml(order.firstName)} ${escapeHtml(
-        order.lastName,
-      )}</p>
-      <p><strong>Email:</strong> ${escapeHtml(order.customerEmail)}</p>
-      <p><strong>Phone:</strong> ${escapeHtml(order.customerPhone)}</p>
-      <h2 style="color:#573615;">Items</h2>
-      <ul>${buildItemsHtml(items)}</ul>
-      <p><strong>Fulfilment:</strong> ${escapeHtml(fulfilmentMethod)}</p>
-      ${
-        order.fulfilmentMethod === "collection"
-          ? "<p>Pickup order. No delivery address needed.</p>"
-          : `<p><strong>Delivery address:</strong><br />${addressLines
-              .map((line) => escapeHtml(String(line)))
-              .join("<br />")}</p>`
-      }
-      <p><strong>Payment status:</strong> ${escapeHtml(order.paymentStatus)}</p>
-      <p><strong>Total paid:</strong> ${formatCurrency(order.totalInPence)}</p>
-    `,
-  );
-
-  return {
-    to: adminNotificationEmail,
-    subject: `Paid Butter & Better order ${order.orderNumber}`,
-    text,
-    html,
-  };
+function toOrderEmailItems(items: OrderItemRecord[]): OrderEmailItem[] {
+  return items.map((item) => ({
+    productName: item.productName,
+    variantName: item.variantName,
+    unitPriceInPence: item.unitPriceInPence,
+    quantity: item.quantity,
+    lineTotalInPence: item.lineTotalInPence,
+  }));
 }
 
-async function sendEmail(message: EmailMessage) {
-  const response = await fetch(emailApiUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${emailApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: emailFromAddress,
-      to: [message.to],
-      subject: message.subject,
-      text: message.text,
-      html: message.html,
-    }),
+function safeErrorMessage(error: unknown) {
+  let message = error instanceof Error ? error.message : String(error);
+
+  for (const secretValue of [
+    emailApiKey,
+    env.STRIPE_SECRET_KEY,
+    env.STRIPE_WEBHOOK_SECRET,
+  ]) {
+    if (secretValue) {
+      message = message.split(secretValue).join("[REDACTED]");
+    }
+  }
+
+  return message.slice(0, 1000);
+}
+
+function getEmailConfigurationError(includeAdminEmail: boolean) {
+  if (!emailApiKey) {
+    return "RESEND_API_KEY is not configured.";
+  }
+
+  if (emailFromAddress !== requiredEmailFromAddress) {
+    return `EMAIL_FROM_ADDRESS must be ${requiredEmailFromAddress}.`;
+  }
+
+  if (
+    includeAdminEmail &&
+    adminNotificationEmail !== requiredAdminNotificationEmail
+  ) {
+    return `ADMIN_NOTIFICATION_EMAIL must be ${requiredAdminNotificationEmail}.`;
+  }
+
+  return undefined;
+}
+
+async function updateOrderEmailState(
+  orderId: string,
+  changes: Partial<Schema["Order"]["type"]>,
+) {
+  const latestOrder = await getOrder(orderId);
+  const updateResponse = await client.models.Order.update(
+    createOrderUpdateInput(latestOrder, changes),
+  );
+
+  if (updateResponse.errors?.length) {
+    throw new Error(
+      updateResponse.errors.map((error) => error.message).join(", "),
+    );
+  }
+
+  return updateResponse.data ?? latestOrder;
+}
+
+function customerEmailWasSent(order: Schema["Order"]["type"]) {
+  return (
+    order.customerOrderConfirmationEmailStatus === EMAIL_STATUS_SENT ||
+    Boolean(order.customerOrderConfirmationEmailSentAt)
+  );
+}
+
+function adminEmailWasSent(order: Schema["Order"]["type"]) {
+  return (
+    order.adminOrderNotificationEmailStatus === EMAIL_STATUS_SENT ||
+    Boolean(order.adminOrderNotificationEmailSentAt)
+  );
+}
+
+async function markCustomerEmailFailed(orderId: string, error: unknown) {
+  try {
+    const latestOrder = await getOrder(orderId);
+
+    if (customerEmailWasSent(latestOrder)) {
+      return;
+    }
+
+    await updateOrderEmailState(orderId, {
+      customerOrderConfirmationEmailStatus: EMAIL_STATUS_FAILED,
+      customerOrderConfirmationEmailError: safeErrorMessage(error),
+      customerOrderConfirmationEmailLastAttemptAt: new Date().toISOString(),
+    });
+  } catch (statusError) {
+    console.error(
+      `Could not store customer email failure for order ${orderId}:`,
+      statusError,
+    );
+  }
+}
+
+async function markAdminEmailFailed(orderId: string, error: unknown) {
+  try {
+    const latestOrder = await getOrder(orderId);
+
+    if (adminEmailWasSent(latestOrder)) {
+      return;
+    }
+
+    await updateOrderEmailState(orderId, {
+      adminOrderNotificationEmailStatus: EMAIL_STATUS_FAILED,
+      adminOrderNotificationEmailError: safeErrorMessage(error),
+      adminOrderNotificationEmailLastAttemptAt: new Date().toISOString(),
+    });
+  } catch (statusError) {
+    console.error(
+      `Could not store admin email failure for order ${orderId}:`,
+      statusError,
+    );
+  }
+}
+
+async function attemptCustomerOrderEmail(
+  orderId: string,
+  items: OrderEmailItem[],
+) {
+  let order = await getOrder(orderId);
+
+  if (customerEmailWasSent(order)) {
+    return;
+  }
+
+  const attemptedAt = new Date().toISOString();
+  order = await updateOrderEmailState(orderId, {
+    customerOrderConfirmationEmailStatus: EMAIL_STATUS_PENDING,
+    customerOrderConfirmationEmailError: null,
+    customerOrderConfirmationEmailLastAttemptAt: attemptedAt,
   });
 
-  if (!response.ok) {
-    const responseText = await response.text();
+  try {
+    const configurationError = getEmailConfigurationError(false);
 
-    throw new Error(
-      `Email API returned ${response.status}: ${responseText.slice(0, 500)}`,
+    if (configurationError) {
+      throw new Error(configurationError);
+    }
+
+    const sendResult = await sendCustomerOrderConfirmation({
+      order: toOrderEmailData(order),
+      items,
+      apiKey: emailApiKey,
+      fromAddress: emailFromAddress,
+    });
+    const latestOrder = await getOrder(orderId);
+
+    if (customerEmailWasSent(latestOrder)) {
+      return;
+    }
+
+    await updateOrderEmailState(orderId, {
+      customerOrderConfirmationEmailStatus: EMAIL_STATUS_SENT,
+      customerOrderConfirmationEmailError: null,
+      customerOrderConfirmationEmailProviderId: sendResult.id,
+      customerOrderConfirmationEmailSentAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error(
+      `Failed to send customer confirmation email for ${order.orderNumber}:`,
+      error,
     );
+    await markCustomerEmailFailed(orderId, error);
+  }
+}
+
+async function attemptAdminOrderEmail(
+  orderId: string,
+  items: OrderEmailItem[],
+) {
+  let order = await getOrder(orderId);
+
+  if (adminEmailWasSent(order)) {
+    return;
+  }
+
+  const attemptedAt = new Date().toISOString();
+  order = await updateOrderEmailState(orderId, {
+    adminOrderNotificationEmailStatus: EMAIL_STATUS_PENDING,
+    adminOrderNotificationEmailError: null,
+    adminOrderNotificationEmailLastAttemptAt: attemptedAt,
+  });
+
+  try {
+    const configurationError = getEmailConfigurationError(true);
+
+    if (configurationError) {
+      throw new Error(configurationError);
+    }
+
+    const sendResult = await sendAdminOrderNotification({
+      order: toOrderEmailData(order),
+      items,
+      apiKey: emailApiKey,
+      fromAddress: emailFromAddress,
+      adminNotificationEmail,
+    });
+    const latestOrder = await getOrder(orderId);
+
+    if (adminEmailWasSent(latestOrder)) {
+      return;
+    }
+
+    await updateOrderEmailState(orderId, {
+      adminOrderNotificationEmailStatus: EMAIL_STATUS_SENT,
+      adminOrderNotificationEmailError: null,
+      adminOrderNotificationEmailProviderId: sendResult.id,
+      adminOrderNotificationEmailSentAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error(
+      `Failed to send admin notification email for ${order.orderNumber}:`,
+      error,
+    );
+    await markAdminEmailFailed(orderId, error);
   }
 }
 
@@ -482,65 +648,30 @@ async function notifyPaidOrder(
   orderId: string,
   fallbackOrder: Schema["Order"]["type"],
 ) {
-  if (!emailApiKey || !emailFromAddress || !adminNotificationEmail) {
-    console.warn(
-      "Order notification email secrets are not configured; skipping email send.",
-    );
-    return;
-  }
-
   try {
     const latestOrder = await getOrder(orderId);
-    const items = await loadOrderItems(latestOrder);
 
-    if (!latestOrder.customerOrderConfirmationEmailSentAt) {
-      try {
-        await sendEmail(buildCustomerEmail(latestOrder, items));
-        const customerEmailUpdate = createOrderUpdateInput(latestOrder, {
-          customerOrderConfirmationEmailSentAt: new Date().toISOString(),
-        });
-
-        const customerEmailUpdateResponse =
-          await client.models.Order.update(customerEmailUpdate);
-
-        if (customerEmailUpdateResponse.errors?.length) {
-          throw new Error("Could not record the customer email notification.");
-        }
-      } catch (error) {
-        console.error(
-          `Failed to send customer confirmation email for ${latestOrder.orderNumber}:`,
-          error,
-        );
-      }
+    if (latestOrder.paymentStatus !== "paid") {
+      throw new Error("Order must be paid before notification emails are sent.");
     }
 
-    const orderForAdminEmail = await getOrder(orderId);
-
-    if (!orderForAdminEmail.adminOrderNotificationEmailSentAt) {
-      try {
-        await sendEmail(buildAdminEmail(orderForAdminEmail, items));
-        const adminEmailUpdate = createOrderUpdateInput(orderForAdminEmail, {
-          adminOrderNotificationEmailSentAt: new Date().toISOString(),
-        });
-
-        const adminEmailUpdateResponse =
-          await client.models.Order.update(adminEmailUpdate);
-
-        if (adminEmailUpdateResponse.errors?.length) {
-          throw new Error("Could not record the admin email notification.");
-        }
-      } catch (error) {
-        console.error(
-          `Failed to send admin notification email for ${orderForAdminEmail.orderNumber}:`,
-          error,
-        );
-      }
+    if (latestOrder.customerProfileId && !latestOrder.loyaltySettled) {
+      throw new Error(
+        "Signed-in order loyalty must be settled before notification emails are sent.",
+      );
     }
+
+    const items = toOrderEmailItems(await loadOrderItems(latestOrder));
+
+    await attemptCustomerOrderEmail(orderId, items);
+    await attemptAdminOrderEmail(orderId, items);
   } catch (error) {
     console.error(
       `Failed to prepare paid order notification emails for ${fallbackOrder.orderNumber}:`,
       error,
     );
+    await markCustomerEmailFailed(orderId, error);
+    await markAdminEmailFailed(orderId, error);
   }
 }
 
@@ -720,6 +851,15 @@ export const handler = async (
     eventClaimed = await claimEvent(stripeEvent);
 
     if (!eventClaimed) {
+      if (stripeEvent.type === "checkout.session.completed") {
+        const checkoutSession =
+          stripeEvent.data.object as Stripe.Checkout.Session;
+
+        if (checkoutSession.payment_status === "paid") {
+          await retryPaidOrderNotifications(checkoutSession);
+        }
+      }
+
       return response(200, "Already processed.");
     }
 
@@ -731,13 +871,14 @@ export const handler = async (
 
       orderId =
         checkoutSession.payment_status === "paid"
-          ? await markSessionPaid(checkoutSession)
+          ? await markSessionPaid(checkoutSession, true)
           : checkoutSession.metadata?.orderId;
     } else if (
       stripeEvent.type === "checkout.session.async_payment_succeeded"
     ) {
       orderId = await markSessionPaid(
         stripeEvent.data.object as Stripe.Checkout.Session,
+        false,
       );
     } else if (stripeEvent.type === "checkout.session.async_payment_failed") {
       orderId = await markSessionFailed(

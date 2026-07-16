@@ -41,7 +41,15 @@ export type AdminOrder = {
   refundedAt: string | null;
   loyaltyProcessedAt: string | null;
   loyaltySettled: boolean | null;
+  customerOrderConfirmationEmailStatus: string | null;
+  customerOrderConfirmationEmailLastAttemptAt: string | null;
+  customerOrderConfirmationEmailError: string | null;
+  customerOrderConfirmationEmailProviderId: string | null;
   customerOrderConfirmationEmailSentAt: string | null;
+  adminOrderNotificationEmailStatus: string | null;
+  adminOrderNotificationEmailLastAttemptAt: string | null;
+  adminOrderNotificationEmailError: string | null;
+  adminOrderNotificationEmailProviderId: string | null;
   adminOrderNotificationEmailSentAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
