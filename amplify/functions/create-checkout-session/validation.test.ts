@@ -1,9 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  parseCheckoutItems,
   validateCheckoutOrder,
   validateCheckoutRequest,
 } from "./validation";
+
+test("parses checkout items from an AWSJSON string", () => {
+  const items = [
+    { productId: "product-1", variantId: "variant-1", quantity: 2 },
+  ];
+
+  assert.deepEqual(parseCheckoutItems(JSON.stringify(items)), items);
+  assert.deepEqual(parseCheckoutItems(items), items);
+  assert.throws(() => parseCheckoutItems("not-json"), /Basket items are invalid/);
+});
 
 function createValidInput() {
   return {

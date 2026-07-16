@@ -60,6 +60,50 @@ export type CheckoutItemRequest = {
   quantity: number;
 };
 
+export function parseCheckoutItems(value: unknown): CheckoutItemRequest[] {
+  let parsedValue = value;
+
+  if (typeof parsedValue === "string") {
+    try {
+      parsedValue = JSON.parse(parsedValue) as unknown;
+    } catch {
+      throw new Error("Basket items are invalid.");
+    }
+  }
+
+  if (!Array.isArray(parsedValue)) {
+    throw new Error("Basket items are invalid.");
+  }
+
+  if (parsedValue.length === 0 || parsedValue.length > maxCheckoutLineItems) {
+    throw new Error("Order must contain between 1 and 50 items.");
+  }
+
+  return parsedValue.map((item) => {
+    if (!item || typeof item !== "object") {
+      throw new Error("Basket item is invalid.");
+    }
+
+    const candidate = item as Record<string, unknown>;
+
+    if (
+      typeof candidate.productId !== "string" ||
+      !candidate.productId ||
+      typeof candidate.variantId !== "string" ||
+      !candidate.variantId ||
+      !Number.isInteger(candidate.quantity)
+    ) {
+      throw new Error("Basket item is invalid.");
+    }
+
+    return {
+      productId: candidate.productId,
+      variantId: candidate.variantId,
+      quantity: candidate.quantity as number,
+    };
+  });
+}
+
 type ValidateCheckoutRequestInput = {
   fulfilmentMethod: string;
   addressLine1?: string | null;

@@ -548,11 +548,13 @@ function CheckoutPage() {
       const authMode = await getCheckoutAuthMode();
       const sessionResponse = await dataClient.mutations.createCheckoutSession(
         {
-          items: basketItems.map((item) => ({
-            productId: item.productId,
-            variantId: item.variantId,
-            quantity: item.quantity,
-          })),
+          items: JSON.stringify(
+            basketItems.map((item) => ({
+              productId: item.productId,
+              variantId: item.variantId,
+              quantity: item.quantity,
+            })),
+          ),
           firstName: formData.firstName,
           lastName: formData.lastName,
           customerEmail: formData.email,

@@ -6,8 +6,8 @@ import Stripe from "stripe";
 import { env } from "$amplify/env/create-checkout-session";
 import type { Schema } from "../../data/resource";
 import {
-  type CheckoutItemRequest,
   maxCheckoutLineItems,
+  parseCheckoutItems,
   validateCheckoutOrder,
   validateCheckoutRequest,
 } from "./validation";
@@ -350,40 +350,6 @@ function validateCustomerInput(argumentsValue: Record<string, unknown>) {
       1000,
     ),
   } satisfies CheckoutCustomerInput;
-}
-
-function parseCheckoutItems(value: unknown): CheckoutItemRequest[] {
-  if (!Array.isArray(value)) {
-    throw new Error("Basket items are invalid.");
-  }
-
-  if (value.length === 0 || value.length > maxCheckoutLineItems) {
-    throw new Error("Order must contain between 1 and 50 items.");
-  }
-
-  return value.map((item) => {
-    if (!item || typeof item !== "object") {
-      throw new Error("Basket item is invalid.");
-    }
-
-    const candidate = item as Record<string, unknown>;
-
-    if (
-      typeof candidate.productId !== "string" ||
-      !candidate.productId ||
-      typeof candidate.variantId !== "string" ||
-      !candidate.variantId ||
-      !Number.isInteger(candidate.quantity)
-    ) {
-      throw new Error("Basket item is invalid.");
-    }
-
-    return {
-      productId: candidate.productId,
-      variantId: candidate.variantId,
-      quantity: candidate.quantity as number,
-    };
-  });
 }
 
 function createOrderNumber(orderId: string) {
