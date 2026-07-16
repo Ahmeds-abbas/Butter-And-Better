@@ -1,48 +1,50 @@
-import { formatGBP } from "../lib/currency";
+import { FaGithub, FaInstagram, FaRegEnvelope } from "react-icons/fa6";
+
+const instagramUrl = "https://www.instagram.com/butterandbetterbakery/";
+const contactEmail = "butterandbetterbakery@gmail.com";
 
 function ContactPage() {
   return (
-    <main className="page">
+    <main className="page contact-page">
       <section className="page-header contact-header">
         <div>
           <p className="eyebrow">Get in touch</p>
           <h1>Contact us</h1>
-          <p>
-            Contact details and enquiry options will be added once confirmed by
-            the bakery owner. For now, the shop flow is ready for menu browsing,
-            basket building and secure checkout.
-          </p>
-        </div>
-        <div className="media-placeholder contact-header-media">
-          <span>Contact photo coming soon</span>
         </div>
       </section>
 
-      <section className="contact-info-grid">
-        <article>
-          <span className="product-badge">Pickup</span>
-          <h2>Pickup available</h2>
-          <p>
-            Pickup is always free and final pickup details are shown only after
-            order confirmation/payment.
-          </p>
-        </article>
-        <article>
-          <span className="product-badge product-badge-light">Delivery</span>
-          <h2>UK tracked delivery</h2>
-          <p>
-            UK tracked delivery is {formatGBP(299)} when every product in the basket is
-            delivery-available.
-          </p>
-        </article>
-        <article>
-          <span className="product-badge">Loyalty</span>
-          <h2>Earn stamps</h2>
-          <p>
-            Signed-in customers earn 1 stamp per {formatGBP(500)} spent on products after
-            payment is confirmed.
-          </p>
-        </article>
+      <section className="contact-links" aria-label="Contact Butter and Better">
+        <a href={`mailto:${contactEmail}`} className="contact-link-card">
+          <FaRegEnvelope aria-hidden="true" />
+          <span>
+            <small>Email</small>
+            <strong>{contactEmail}</strong>
+          </span>
+        </a>
+        <a
+          href={instagramUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="contact-link-card"
+        >
+          <FaInstagram aria-hidden="true" />
+          <span>
+            <small>Instagram</small>
+            <strong>@butterandbetterbakery</strong>
+          </span>
+        </a>
+      </section>
+
+      <section className="contact-credits" aria-label="Site credits">
+        <p>Owned by <strong>Sarah Zain</strong></p>
+        <a
+          href="https://github.com/Ahmeds-abbas"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <FaGithub aria-hidden="true" />
+          <span>Powered by <strong>Ahmed Abbas</strong></span>
+        </a>
       </section>
     </main>
   );

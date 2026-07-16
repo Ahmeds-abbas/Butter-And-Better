@@ -3,6 +3,7 @@ import { Hub } from "aws-amplify/utils";
 import { Menu, ShoppingBag, UserRound, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
+import navbarLogo from "../../assets/logo-navbar.png";
 import "../../lib/amplifyConfig";
 
 type NavbarProps = {
@@ -70,11 +71,12 @@ function Navbar({ basketItemCount }: NavbarProps) {
         </button>
 
         <Link to="/" className="brand" aria-label="Butter & Better home">
-          <span className="brand-placeholder-mark" aria-hidden="true">B&amp;B</span>
-          <span className="brand-placeholder-copy">
-            <strong>Butter &amp; Better</strong>
-            <small>Final logo coming soon</small>
-          </span>
+          <img
+            src={navbarLogo}
+            alt=""
+            className="brand-logo"
+            aria-hidden="true"
+          />
         </Link>
 
         <div className="nav-actions">

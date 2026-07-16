@@ -5,7 +5,6 @@ import AnnouncementTicker from "../components/marketing/AnnouncementTicker";
 import ProductCard from "../components/products/ProductCard";
 import { dataClient } from "../lib/amplifyClient";
 import {
-  getProductImageUrl,
   getProductImageAltText,
   resolveProductGalleryImages,
   resolveProductImageUrl,
@@ -242,15 +241,6 @@ function ShopPage() {
       <section className="page-header shop-page-header">
         <div>
           <h1>Our menu</h1>
-        </div>
-        <div className="shop-header-media">
-          <img
-            src={products[0]?.imageUrl ?? getProductImageUrl("")}
-            alt={
-              products[0]?.imageAltText ??
-              "Butter and Better featured menu product"
-            }
-          />
         </div>
       </section>
 

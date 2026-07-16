@@ -1,5 +1,5 @@
 import { ShieldCheck } from "lucide-react";
-import { FaInstagram, FaRegEnvelope, FaTiktok } from "react-icons/fa6";
+import { FaInstagram, FaRegEnvelope } from "react-icons/fa6";
 import { Link } from "react-router-dom";
 
 const footerLinks = [
@@ -26,22 +26,15 @@ export default function SiteFooter() {
         </Link>
 
         <div className="site-footer-social">
-          <p>Follow us on social media.</p>
           <div className="site-footer-social-icons">
-            <span
-              role="img"
-              title="Instagram profile coming soon"
-              aria-label="Instagram profile coming soon"
+            <a
+              href="https://www.instagram.com/butterandbetterbakery/"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Butter and Better on Instagram"
             >
               <FaInstagram aria-hidden="true" />
-            </span>
-            <span
-              role="img"
-              title="TikTok profile coming soon"
-              aria-label="TikTok profile coming soon"
-            >
-              <FaTiktok aria-hidden="true" />
-            </span>
+            </a>
             <Link to="/contact" aria-label="Contact Butter and Better">
               <FaRegEnvelope aria-hidden="true" />
             </Link>

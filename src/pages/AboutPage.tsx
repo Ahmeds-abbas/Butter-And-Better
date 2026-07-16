@@ -1,5 +1,9 @@
 import EditorialMediaCard from "../components/marketing/EditorialMediaCard";
 import LoyaltyPreview from "../components/marketing/LoyaltyPreview";
+import customPiecesImage from "../assets/about-custom-pieces.jpg";
+import freshlyBakedImage from "../assets/about-freshly-baked.jpg";
+import mixingImage from "../assets/about-mixing.jpg";
+import preparationImage from "../assets/about-preparation.jpg";
 
 function AboutPage() {
   return (
@@ -14,8 +18,17 @@ function AboutPage() {
             or eligible UK tracked delivery, then pay securely.
           </p>
         </div>
-        <div className="media-placeholder story-header-media">
-          <span>Bakery story photo coming soon</span>
+        <div className="story-header-media">
+          <img
+            src={customPiecesImage}
+            alt="A custom Butter and Better birthday brownie box"
+            className="story-header-image"
+            decoding="async"
+          />
+          <div className="story-header-media-copy">
+            <span>Made for your moment</span>
+            <strong>We make custom pieces.</strong>
+          </div>
         </div>
       </section>
 
@@ -27,17 +40,20 @@ function AboutPage() {
 
         <div className="editorial-grid">
           <EditorialMediaCard
-            label="Ingredients photo coming soon"
+            imageSrc={mixingImage}
+            imageAlt="Chopped chocolate ready for a Butter and Better bake"
             title="Thoughtful recipes"
             copy="Cookies, brownies, brookies, blondies and banana pudding sit at the heart of the menu."
           />
           <EditorialMediaCard
-            label="Oven photo coming soon"
+            imageSrc={preparationImage}
+            imageAlt="Cookie dough and chocolate being prepared by hand"
             title="Freshly prepared"
             copy="Orders are handled with a fresh, handmade bakery mindset."
           />
           <EditorialMediaCard
-            label="Boxing photo coming soon"
+            imageSrc={freshlyBakedImage}
+            imageAlt="Freshly baked Butter and Better cinnamon rolls"
             title="Ready to gift"
             copy="The experience is designed to feel beautiful from product page to pickup or delivery."
           />
