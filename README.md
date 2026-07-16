@@ -1,6 +1,6 @@
 # Butter & Better
 
-Butter & Better is a full-stack e-commerce platform being developed for a UK-based bakery owned by my friend Sarah Zain.
+Butter & Better is a full-stack e-commerce platform being developed for a UK-based bakery owned by my friend Sarah Zein and powered by me, Ahmed Abbas.
 
 The platform will allow customers to browse bakery products, customise selected items, manage a shopping basket, check out as a guest or registered user, make secure online payments, choose an available delivery or collection option, and earn loyalty rewards.
 
