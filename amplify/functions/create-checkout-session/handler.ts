@@ -43,64 +43,26 @@ const allowedCheckoutOrigins = new Set([
   "https://main.d2g7z9bkquno42.amplifyapp.com",
 ]);
 
-function createOrderUpdateInput(
-  order: Schema["Order"]["type"],
-  changes: Partial<Schema["Order"]["type"]>,
+function logDataErrors(context: string, errors: unknown) {
+  if (Array.isArray(errors) && errors.length > 0) {
+    console.error(context, JSON.stringify(errors));
+  }
+}
+
+function withOptionalTextFields<T extends Record<string, unknown>>(
+  input: T,
+  optionalFields: Record<string, string | null>,
 ) {
-  return {
-    id: order.id,
-    orderNumber: order.orderNumber,
-    status: changes.status ?? order.status,
-    paymentStatus: changes.paymentStatus ?? order.paymentStatus,
-    customerEmail: order.customerEmail,
-    customerPhone: order.customerPhone,
-    firstName: order.firstName,
-    lastName: order.lastName,
-    customerProfileId: order.customerProfileId,
-    fulfilmentMethod: order.fulfilmentMethod,
-    addressLine1: order.addressLine1,
-    addressLine2: order.addressLine2,
-    city: order.city,
-    postcode: order.postcode,
-    customerNotes: order.customerNotes,
-    subtotalInPence: order.subtotalInPence,
-    deliveryFeeInPence: order.deliveryFeeInPence,
-    loyaltySpendInPence: order.loyaltySpendInPence,
-    stampsEarned: order.stampsEarned,
-    rewardDiscountInPence: order.rewardDiscountInPence,
-    totalInPence: order.totalInPence,
-    checkoutAccessToken: order.checkoutAccessToken,
-    stripeCheckoutSessionId:
-      changes.stripeCheckoutSessionId ?? order.stripeCheckoutSessionId,
-    stripePaymentIntentId:
-      changes.stripePaymentIntentId ?? order.stripePaymentIntentId,
-    paidAt: changes.paidAt ?? order.paidAt,
-    refundedAt: changes.refundedAt ?? order.refundedAt,
-    loyaltyProcessedAt: changes.loyaltyProcessedAt ?? order.loyaltyProcessedAt,
-    loyaltySettled: changes.loyaltySettled ?? order.loyaltySettled,
-    customerOrderConfirmationEmailStatus:
-      order.customerOrderConfirmationEmailStatus,
-    customerOrderConfirmationEmailLastAttemptAt:
-      order.customerOrderConfirmationEmailLastAttemptAt,
-    customerOrderConfirmationEmailError:
-      order.customerOrderConfirmationEmailError,
-    customerOrderConfirmationEmailProviderId:
-      order.customerOrderConfirmationEmailProviderId,
-    customerOrderConfirmationEmailSentAt:
-      changes.customerOrderConfirmationEmailSentAt ??
-      order.customerOrderConfirmationEmailSentAt,
-    adminOrderNotificationEmailStatus:
-      order.adminOrderNotificationEmailStatus,
-    adminOrderNotificationEmailLastAttemptAt:
-      order.adminOrderNotificationEmailLastAttemptAt,
-    adminOrderNotificationEmailError:
-      order.adminOrderNotificationEmailError,
-    adminOrderNotificationEmailProviderId:
-      order.adminOrderNotificationEmailProviderId,
-    adminOrderNotificationEmailSentAt:
-      changes.adminOrderNotificationEmailSentAt ??
-      order.adminOrderNotificationEmailSentAt,
-  } as unknown as OrderUpdateInput;
+  return Object.entries(optionalFields).reduce<Record<string, unknown>>(
+    (nextInput, [key, value]) => {
+      if (value != null) {
+        nextInput[key] = value;
+      }
+
+      return nextInput;
+    },
+    { ...input },
+  );
 }
 
 function requireSafeOrigin(origin: string) {
@@ -411,55 +373,43 @@ async function deletePendingOrder(orderId: string, itemIds: string[]) {
 async function createPendingOrder(
   customer: CheckoutCustomerInput,
   customerProfileId: string | null,
-  owner: string | null,
   validatedOrder: ReturnType<typeof validateCheckoutRequest>,
 ) {
   const orderId = randomUUID();
   const checkoutAccessToken = randomUUID();
-  const orderInput = {
-    id: orderId,
-    owner,
-    orderNumber: createOrderNumber(orderId),
-    status: "pending",
-    paymentStatus: "pending",
-    customerEmail: customer.customerEmail,
-    customerPhone: customer.customerPhone,
-    firstName: customer.firstName,
-    lastName: customer.lastName,
-    customerProfileId,
-    fulfilmentMethod: customer.fulfilmentMethod,
-    addressLine1: customer.addressLine1,
-    addressLine2: customer.addressLine2,
-    city: customer.city,
-    postcode: customer.postcode,
-    customerNotes: customer.customerNotes,
-    subtotalInPence: validatedOrder.subtotalInPence,
-    deliveryFeeInPence: validatedOrder.deliveryFeeInPence,
-    loyaltySpendInPence: validatedOrder.loyaltySpendInPence,
-    stampsEarned: 0,
-    rewardDiscountInPence: validatedOrder.rewardDiscountInPence,
-    totalInPence: validatedOrder.totalInPence,
-    checkoutAccessToken,
-    stripeCheckoutSessionId: null,
-    stripePaymentIntentId: null,
-    paidAt: null,
-    refundedAt: null,
-    loyaltyProcessedAt: null,
-    loyaltySettled: false,
-    customerOrderConfirmationEmailStatus: "PENDING",
-    customerOrderConfirmationEmailLastAttemptAt: null,
-    customerOrderConfirmationEmailError: null,
-    customerOrderConfirmationEmailProviderId: null,
-    customerOrderConfirmationEmailSentAt: null,
-    adminOrderNotificationEmailStatus: "PENDING",
-    adminOrderNotificationEmailLastAttemptAt: null,
-    adminOrderNotificationEmailError: null,
-    adminOrderNotificationEmailProviderId: null,
-    adminOrderNotificationEmailSentAt: null,
-  } as unknown as OrderCreateInput;
+  const orderInput = withOptionalTextFields(
+    {
+      id: orderId,
+      orderNumber: createOrderNumber(orderId),
+      status: "pending",
+      paymentStatus: "pending",
+      customerEmail: customer.customerEmail,
+      customerPhone: customer.customerPhone,
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      fulfilmentMethod: customer.fulfilmentMethod,
+      subtotalInPence: validatedOrder.subtotalInPence,
+      deliveryFeeInPence: validatedOrder.deliveryFeeInPence,
+      loyaltySpendInPence: validatedOrder.loyaltySpendInPence,
+      stampsEarned: 0,
+      rewardDiscountInPence: validatedOrder.rewardDiscountInPence,
+      totalInPence: validatedOrder.totalInPence,
+      checkoutAccessToken,
+      loyaltySettled: false,
+    },
+    {
+      customerProfileId,
+      addressLine1: customer.addressLine1,
+      addressLine2: customer.addressLine2,
+      city: customer.city,
+      postcode: customer.postcode,
+      customerNotes: customer.customerNotes,
+    },
+  ) as unknown as OrderCreateInput;
   const orderResponse = await client.models.Order.create(orderInput);
 
   if (orderResponse.errors?.length || !orderResponse.data) {
+    logDataErrors("Could not create pending order.", orderResponse.errors);
     throw new Error("Could not create a secure pending order.");
   }
 
@@ -471,7 +421,6 @@ async function createPendingOrder(
       const itemResponse = await client.models.OrderItem.create(
         {
           id: itemId,
-          owner,
           orderId,
           productId: item.productId,
           variantId: item.variantId,
@@ -484,6 +433,7 @@ async function createPendingOrder(
       );
 
       if (itemResponse.errors?.length || !itemResponse.data) {
+        logDataErrors("Could not create pending order item.", itemResponse.errors);
         throw new Error("Could not create secure order items.");
       }
 
@@ -622,10 +572,15 @@ async function storeCheckoutSession(
   session: Stripe.Checkout.Session,
 ) {
   const updateResponse = await client.models.Order.update(
-    createOrderUpdateInput(order, { stripeCheckoutSessionId: session.id }),
+    {
+      id: order.id,
+      stripeCheckoutSessionId: session.id,
+    } as unknown as OrderUpdateInput,
   );
 
   if (updateResponse.errors?.length) {
+    logDataErrors("Could not store Stripe Checkout Session ID.", updateResponse.errors);
+
     if (session.status === "open") {
       await stripe.checkout.sessions.expire(session.id).catch(() => undefined);
     }
@@ -695,7 +650,6 @@ async function startCheckout(event: CreateCheckoutEvent) {
   const pendingOrder = await createPendingOrder(
     customer,
     customerProfile?.id ?? null,
-    callerSub,
     validatedOrder,
   );
 
