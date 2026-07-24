@@ -191,6 +191,7 @@ const schema = a.schema({
 
   CustomerProfile: a
     .model({
+      owner: a.string(),
       firstName: a.string(),
       lastName: a.string(),
       phone: a.phone(),
@@ -200,7 +201,7 @@ const schema = a.schema({
       availableRewards: a.integer().required(),
     })
     .authorization((allow) => [
-      allow.owner().to(["read"]),
+      allow.ownerDefinedIn("owner").identityClaim("sub").to(["read"]),
       allow.group("Admin"),
     ]),
 }).authorization((allow) => [

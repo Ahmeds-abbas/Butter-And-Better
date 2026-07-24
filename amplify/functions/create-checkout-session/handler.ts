@@ -21,6 +21,9 @@ type OrderItemCreateInput = Parameters<
 type CustomerProfileCreateInput = Parameters<
   ReturnType<typeof generateClient<Schema>>["models"]["CustomerProfile"]["create"]
 >[0];
+type CustomerProfileUpdateInput = Parameters<
+  ReturnType<typeof generateClient<Schema>>["models"]["CustomerProfile"]["update"]
+>[0];
 
 type OrderUpdateInput = Parameters<
   ReturnType<typeof generateClient<Schema>>["models"]["Order"]["update"]
@@ -326,6 +329,25 @@ async function ensureCustomerProfile(customerProfileId: string) {
   });
 
   if (existingProfile.data) {
+    if (existingProfile.data.owner === customerProfileId) {
+      return existingProfile.data;
+    }
+
+    const repairResponse = await client.models.CustomerProfile.update(
+      {
+        id: customerProfileId,
+        owner: customerProfileId,
+      } as unknown as CustomerProfileUpdateInput,
+    );
+
+    if (!repairResponse.errors?.length && repairResponse.data) {
+      return repairResponse.data;
+    }
+
+    logDataErrors(
+      "Could not repair customer loyalty profile owner.",
+      repairResponse.errors,
+    );
     return existingProfile.data;
   }
 

@@ -26,6 +26,10 @@ test("public clients cannot create checkout or loyalty records directly", () => 
     dataSchema,
     /allow\.owner\(\)\.to\(\["create", "read"\]\)/,
   );
+  assert.match(
+    dataSchema,
+    /allow\.ownerDefinedIn\("owner"\)\.identityClaim\("sub"\)\.to\(\["read"\]\)/,
+  );
   assert.doesNotMatch(frontendSource, /models\.Order\.create\(/);
   assert.doesNotMatch(frontendSource, /models\.OrderItem\.create\(/);
   assert.doesNotMatch(frontendSource, /models\.CustomerProfile\.create\(/);
