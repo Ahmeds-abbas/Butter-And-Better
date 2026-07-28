@@ -1,4 +1,4 @@
-# Butter & Better 123
+# Butter & Better
 
 Butter & Better is a full-stack e-commerce platform being developed for a UK-based bakery owned by my friend Sarah Zein and powered by me, Ahmed Abbas.
 
