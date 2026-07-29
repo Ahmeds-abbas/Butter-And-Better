@@ -1,47 +1,52 @@
 # Butter & Better
 
-Butter & Better is a full-stack e-commerce platform being developed for a UK-based bakery owned by my friend Sarah Zein and powered by me, Ahmed Abbas.
+Butter & Better is a deployed full-stack bakery e-commerce website I built for Butter & Better Bakery, a UK-based small-batch bakery owned by Sarah Zain.
 
-The platform will allow customers to browse bakery products, customise selected items, manage a shopping basket, check out as a guest or registered user, make secure online payments, choose an available delivery or collection option, and earn loyalty rewards.
+The project is live at:
 
-The bakery owner will have access to a secure admin dashboard for managing products, orders, customers, fulfilment, and loyalty points.
+```text
+https://www.butterandbetter.co.uk
+```
+
+The site allows customers to browse products, manage a basket, choose pickup or UK tracked delivery where eligible, check out securely through Stripe, receive order confirmation emails, and earn loyalty stamps when signed in. The bakery owner also has access to an admin dashboard for managing products and orders.
 
 ## Project Status
 
-The project is currently in the early frontend development stage.
+The project has been deployed and is now in production-ready operation.
 
-Completed so far:
+Completed features include:
 
-- React and TypeScript project setup
-- Vite development environment
-- ESLint configuration
-- Initial homepage layout
-- Responsive navigation
-- Brand colour system
-- Reusable component structure
-- Git and GitHub setup
-
-## Planned Features
-
-- Product catalogue
-- Product detail pages
-- Product customisation options
-- Shopping basket
+- Public bakery website with responsive design
+- Homepage, about, contact, shop, product, basket, checkout, account, and admin pages
+- Product catalogue with variants, pricing, active status, media fields, and delivery eligibility
 - Guest checkout
-- Customer registration and login
-- Secure online payments
-- UK address and postcode validation
-- Nationwide delivery for eligible products
-- Manchester same-day delivery
-- Free collection option
-- Customer order history
-- Loyalty points and rewards
-- Admin dashboard
-- Product management
-- Order management
-- Order status tracking
-- Payment and fulfilment status
-- Email order confirmations
+- Signed-in customer checkout
+- Secure Stripe Checkout integration
+- Stripe webhook payment confirmation
+- Order records with payment and fulfilment status
+- Free pickup
+- UK tracked delivery at exactly GBP 2.99 for eligible baskets
+- Delivery blocking when any basket item is pickup-only
+- Customer loyalty stamp system
+- Loyalty carry-over spending
+- GBP 5 reward redemption after 8 stamps
+- Customer and admin order notification emails through Resend
+- Admin product management
+- Admin order management
+- Protected admin access
+- Amplify Gen 2 backend
+- Cognito authentication
+- AppSync/Data models
+- Lambda backend functions
+- Secure secret handling through Amplify secrets
+- Custom domain deployment
+- SPA redirect and caching configuration for Amplify Hosting
+
+## Project Purpose
+
+I built this project to create a real e-commerce platform for a bakery rather than just a static marketing site. The goal was to support the actual customer journey from browsing products to completing payment, while giving the owner the tools needed to manage products and orders.
+
+The project also helped me learn how a production web application is structured end to end: frontend, backend, authentication, database rules, payments, webhook security, deployment, custom domains, and operational debugging.
 
 ## Technology Stack
 
@@ -50,145 +55,258 @@ Completed so far:
 - React
 - TypeScript
 - Vite
+- React Router
 - CSS
-- ESLint
+- Lucide React icons
+- React Icons
 
-### Planned Backend and Services
+### Backend and Cloud
 
-- AWS
+- AWS Amplify Gen 2
+- AWS AppSync / Amplify Data
 - Amazon Cognito
-- Amazon DynamoDB
-- AWS Lambda
-- Amazon S3
-- Stripe
+- AWS Lambda functions
+- DynamoDB-backed Amplify models
+- Amplify Hosting
+- Amplify secrets
 
-## Project Structure
+### Payments and Email
+
+- Stripe Checkout
+- Stripe webhooks
+- Resend email API
+
+### Tooling
+
+- npm
+- ESLint
+- TypeScript build checks
+- Git and GitHub
+
+## Main Application Structure
 
 ```text
 src/
-├── assets/
-├── components/
-│   └── layout/
-├── data/
-├── pages/
-├── types/
-├── App.tsx
-├── App.css
-├── index.css
-└── main.tsx
+  assets/              Brand images, product/about imagery, loyalty stamp artwork
+  components/          Reusable UI and layout components
+  components/admin/    Admin order and product management UI
+  components/layout/   Header, navigation, footer
+  components/marketing/Marketing and homepage supporting sections
+  hooks/               Shared React hooks such as basket state
+  lib/                 Shared logic for Amplify, checkout totals, loyalty, currency
+  pages/               Main route pages
+  types/               Shared TypeScript types
+  App.tsx              Route definitions
+  App.css              Global site styling
+  main.tsx             React entry point
+
+amplify/
+  backend.ts
+  data/resource.ts
+  functions/
+    create-checkout-session/
+    stripe-webhook/
+    verify-checkout-session/
+  seed/
 ```
 
-## Stripe Checkout Setup
+## How Checkout Works
 
-Stripe secret values must be stored as Amplify secrets. Do not put Stripe secret keys in `src/`, Vite env files, or committed files.
+Checkout is designed so the browser never becomes the source of truth for payment or order totals.
 
-For sandbox development:
-
-```powershell
-npx.cmd ampx sandbox secret set STRIPE_SECRET_KEY --profile butter-and-better
-npx.cmd ampx sandbox secret set STRIPE_WEBHOOK_SECRET --profile butter-and-better
-npx.cmd ampx sandbox secret set RESEND_API_KEY --profile butter-and-better
-npx.cmd ampx sandbox secret set EMAIL_FROM_ADDRESS --profile butter-and-better
-npx.cmd ampx sandbox secret set ADMIN_NOTIFICATION_EMAIL --profile butter-and-better
-```
-
-For a deployed Amplify branch, configure the same secret names for that branch in Amplify before deploying:
-
-```powershell
-npx.cmd ampx pipeline-deploy --branch <branch-name> --app-id <amplify-app-id>
-```
-
-## Staging Deployment
-
-Stripe staging should continue to use test mode. The Resend domain `butterandbetter.co.uk` must be verified before the configured order sender can deliver email.
-
-Required Amplify secrets for the staging branch:
-
-- `STRIPE_SECRET_KEY`: Stripe test secret key, for example `sk_test_...`
-- `STRIPE_WEBHOOK_SECRET`: Stripe webhook signing secret for the staging webhook destination
-- `RESEND_API_KEY`: Resend API key
-- `EMAIL_FROM_ADDRESS`: `Butter & Better <orders@butterandbetter.co.uk>`
-- `ADMIN_NOTIFICATION_EMAIL`: `butterandbetterbakery@gmail.com`
-
-Deployment checklist:
-
-1. Create or select the Amplify staging branch.
-2. Configure the required secrets for that branch in Amplify.
-3. Deploy the backend and frontend:
-
-   ```powershell
-   npx.cmd ampx pipeline-deploy --branch staging --app-id <amplify-app-id>
-   ```
-
-4. After deploy, get the `stripeWebhookUrl` custom output from Amplify.
-5. In Stripe test mode, add a webhook destination pointing to that `stripeWebhookUrl`.
-6. Select the checkout/payment events used by the app, including:
-   - `checkout.session.completed`
-   - `checkout.session.async_payment_succeeded`
-   - `checkout.session.async_payment_failed`
-   - `payment_intent.payment_failed`
-   - `charge.refunded`
-7. Copy the Stripe webhook signing secret into the staging `STRIPE_WEBHOOK_SECRET`.
-8. Redeploy/restart the staging backend after changing secrets.
-9. Run a Stripe test checkout from the deployed staging URL.
-
-Checkout redirect URLs are environment-aware. The browser sends its current `window.location.origin` to the backend, so local development redirects back to `localhost`, while staging redirects back to the deployed staging domain. Do not hardcode localhost or production domains in the checkout flow.
-
-## Custom domain
-
-The public production domain is `www.butterandbetter.co.uk`, with the apex domain redirecting to `www`. Canonical browser metadata is configured for `https://www.butterandbetter.co.uk/`; DNS remains a manual deployment step.
-
-In Amplify Hosting, open the app, choose **Hosting > Custom domains**, add `butterandbetter.co.uk`, and follow the displayed DNS verification instructions at the domain registrar. Keep the apex-to-`www` redirect so there is a single canonical URL. Do not change the checkout redirect code: it uses the browser origin and will automatically use the custom domain after DNS and the Amplify certificate are active.
-
-The React app requires an Amplify Hosting SPA rewrite to `/index.html` with status `200`, but the rule must exclude static file extensions. Use this AWS-supported source expression:
+The flow is:
 
 ```text
-</^[^.]+$|\.(?!(css|gif|ico|jpg|js|png|txt|svg|woff|woff2|ttf|map|json|webp)$)([^.]+$)/>
+Customer reviews basket
+  -> frontend sends product IDs, variant IDs, quantities, and customer details
+  -> backend reloads product and variant data
+  -> backend recalculates totals in integer pence
+  -> backend validates delivery rules and loyalty redemption
+  -> backend creates a pending order
+  -> backend creates a Stripe Checkout Session
+  -> customer pays through Stripe
+  -> Stripe sends a signed webhook
+  -> backend verifies the webhook signature
+  -> backend marks the order as paid
+  -> backend settles loyalty
+  -> backend sends customer/admin emails
 ```
 
-Do not use `/<*>` for the SPA rewrite. That rule also rewrites JavaScript, CSS, fonts, and images to `index.html`, which prevents the application from loading. The root `customHttp.yml` keeps mutable HTML uncached while allowing fingerprinted files under `/assets/` to be cached safely.
+This structure is important because customers can edit browser data. Product prices, delivery fees, loyalty rewards, and payment state must always be confirmed by the backend.
 
-`amplify_outputs.json` is generated per environment and is intentionally ignored by git. Local sandbox output should not be committed; Amplify Hosting/pipeline deployment provides environment-specific outputs for the deployed branch.
+## Payment Security
 
-The public checkout-success query currently uses an AppSync API key. It is configured for the AWS maximum lifetime of 365 days; schedule a backend deployment or API-key rotation before it expires so checkout verification does not start returning 401 responses.
+Stripe secret keys are not stored in the frontend or committed to the repository.
 
-Stripe local test flow:
+Stripe payment state is controlled by the webhook, not by the checkout success page. The success page can display payment progress, but only the verified Stripe webhook marks an order as paid.
 
-1. Create or open a Stripe test account.
-2. Copy a test secret key such as `sk_test_...` into `STRIPE_SECRET_KEY`.
-3. Start the Amplify sandbox:
+Webhook handling is idempotent. Duplicate Stripe events should not duplicate:
 
-   ```powershell
-   npx.cmd ampx sandbox --profile butter-and-better
-   ```
+- Paid order processing
+- Loyalty stamps
+- Customer emails
+- Admin emails
 
-4. Note the `stripeWebhookUrl` custom output from the sandbox deployment.
-5. Forward Stripe events to that URL with the Stripe CLI:
+## Loyalty System
 
-   ```powershell
-   stripe listen --forward-to <stripeWebhookUrl>
-   ```
+Signed-in customers earn loyalty stamps after a paid order.
 
-6. Copy the CLI webhook signing secret `whsec_...` into `STRIPE_WEBHOOK_SECRET`.
-7. Restart the sandbox after changing secrets.
-8. Start Vite:
+The loyalty rules are:
 
-   ```powershell
-   npm.cmd run dev
-   ```
+- GBP 5 product spend earns 1 stamp
+- Spending carry-over is saved toward the next stamp
+- 8 stamps create 1 GBP 5 reward
+- Delivery fees do not count toward loyalty stamps
+- Guest orders do not earn or redeem loyalty
+- Loyalty is settled only after Stripe confirms payment
 
-9. Use Stripe test card `4242 4242 4242 4242` for a successful payment.
-10. Use a Stripe declined test card to confirm failed-payment handling.
+Customer loyalty profiles use Cognito ownership so each signed-in customer can read their own stamp balance while public users cannot alter loyalty data.
 
-Payment notes:
+## Delivery Rules
 
-- The browser submits customer details plus product IDs, variant IDs, and quantities to the checkout backend. It cannot create `Order`, `OrderItem`, or `CustomerProfile` records directly.
-- The backend validates customer input, reloads current catalogue prices and delivery flags, initializes signed-in loyalty profiles at zero, calculates all totals in pence, and creates the pending order and items.
-- The backend creates the Stripe Checkout Session and stores its session ID. Cancelled orders can only be retried with their server-generated access token.
-- Only the Stripe webhook marks an order `paid`.
-- The success page verifies the Checkout Session but does not mark payment as paid.
-- Loyalty settlement runs only from the Stripe webhook after a verified paid payment.
-- Order notification emails are sent only after the Stripe webhook verifies a successful paid payment.
-- Email sending uses Amplify secrets. Each customer/admin delivery is stored as `PENDING`, `SENT`, or `FAILED`; a failed send never changes the paid state.
-- Resending the same verified `checkout.session.completed` event retries only unsent emails. Database sent markers and Resend idempotency keys prevent repeat delivery.
-- Loyalty reversal on refunds is deferred and must be handled manually/admin-side until implemented.
+The site supports:
+
+- Free pickup
+- UK tracked delivery at GBP 2.99
+
+UK tracked delivery only appears when every item in the basket is delivery-available. If any item is pickup-only, delivery is blocked and the customer is shown a clear message.
+
+Manchester same-day delivery is not part of the current live rules.
+
+## Email Notifications
+
+Order emails are sent through Resend from the Amplify backend only.
+
+Emails are sent only after Stripe confirms a paid order through a verified webhook.
+
+The system sends:
+
+- Customer order confirmation email
+- Admin new-order notification email
+
+Email status is stored on the order as `PENDING`, `SENT`, or `FAILED`. If email sending fails, the order stays paid and the failure can be investigated separately.
+
+## Admin Dashboard
+
+The admin area allows the bakery owner to manage the operational side of the site.
+
+Admin functionality includes:
+
+- Product management
+- Product availability
+- Product delivery eligibility
+- Product labels such as best seller or new drop
+- Order viewing
+- Order status and fulfilment updates
+- Customer/order details
+- Payment and email status visibility
+
+Admin actions are protected by backend authorization rules, not only hidden in the UI.
+
+## Deployment
+
+The project is deployed through AWS Amplify Hosting from the GitHub `main` branch.
+
+The production domain is:
+
+```text
+https://www.butterandbetter.co.uk
+```
+
+The apex domain redirects to the `www` domain.
+
+The app uses an Amplify Hosting SPA rewrite so React routes load correctly on refresh. Static assets must not be rewritten to `index.html`, otherwise JavaScript and CSS files will fail to load.
+
+## Required Amplify Secrets
+
+The following values must be configured in Amplify secrets for the deployed branch:
+
+```text
+STRIPE_SECRET_KEY
+STRIPE_WEBHOOK_SECRET
+RESEND_API_KEY
+EMAIL_FROM_ADDRESS
+ADMIN_NOTIFICATION_EMAIL
+```
+
+Secret values must not be committed to the repository.
+
+## Stripe Webhook Events
+
+The Stripe webhook destination should listen for:
+
+```text
+checkout.session.completed
+checkout.session.async_payment_succeeded
+checkout.session.async_payment_failed
+payment_intent.payment_failed
+charge.refunded
+```
+
+## Local Development
+
+Install dependencies:
+
+```powershell
+npm.cmd ci --legacy-peer-deps
+```
+
+Start the development server:
+
+```powershell
+npm.cmd run dev
+```
+
+Run checks:
+
+```powershell
+npm.cmd run lint
+npm.cmd test
+npm.cmd run build
+```
+
+## Deployment Checklist
+
+Before deploying, I check:
+
+1. `npm.cmd ci --legacy-peer-deps` works with the lockfile.
+2. `npm.cmd run lint` passes.
+3. `npm.cmd test` passes.
+4. `npm.cmd run build` passes.
+5. Amplify secrets are configured.
+6. Stripe webhook secret matches the deployed webhook destination.
+7. The custom domain points to Amplify.
+8. Checkout works as guest.
+9. Checkout works when signed in.
+10. Webhook marks orders as paid.
+11. Emails are sent after paid confirmation.
+12. Admin can view and update orders.
+
+## Important Notes
+
+- `amplify_outputs.json` is environment-specific and should not be committed.
+- `.env` files should not be committed.
+- Payment and email secrets belong in Amplify secrets.
+- Checkout totals are calculated in integer pence.
+- The frontend should never directly create `Order`, `OrderItem`, or `CustomerProfile` records.
+- The backend validates product prices and delivery rules again before Stripe Checkout.
+- The webhook is the payment source of truth.
+- Refund loyalty reversal is currently a manual/admin-side process.
+
+## Future Improvements
+
+Future improvements could include:
+
+- More advanced media upload management
+- Automated refund loyalty reversal
+- Customer order history
+- More detailed analytics
+- Stock reservation during checkout
+- More product customisation options
+- Expanded admin reporting
+
+## Credits
+
+Butter & Better Bakery is owned by Sarah Zain.
+
+The website was designed, built, and deployed by me, Ahmed Abbas.
