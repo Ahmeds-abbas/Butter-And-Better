@@ -113,7 +113,7 @@ const schema = a.schema({
       paymentStatus: a.string().required(),
 
       customerEmail: a.email().required(),
-      customerPhone: a.phone().required(),
+      customerPhone: a.string().required(),
       firstName: a.string().required(),
       lastName: a.string().required(),
       customerProfileId: a.id(),

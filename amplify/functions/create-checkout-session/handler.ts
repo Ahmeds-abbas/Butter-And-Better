@@ -395,7 +395,6 @@ async function deletePendingOrder(orderId: string, itemIds: string[]) {
 async function createPendingOrder(
   customer: CheckoutCustomerInput,
   customerProfileId: string | null,
-  owner: string | null,
   validatedOrder: ReturnType<typeof validateCheckoutRequest>,
 ) {
   const orderId = randomUUID();
@@ -403,7 +402,6 @@ async function createPendingOrder(
   const orderInput = withOptionalTextFields(
     {
       id: orderId,
-      owner,
       orderNumber: createOrderNumber(orderId),
       status: "pending",
       paymentStatus: "pending",
@@ -445,7 +443,6 @@ async function createPendingOrder(
       const itemResponse = await client.models.OrderItem.create(
         {
           id: itemId,
-          owner,
           orderId,
           productId: item.productId,
           variantId: item.variantId,
@@ -675,7 +672,6 @@ async function startCheckout(event: CreateCheckoutEvent) {
   const pendingOrder = await createPendingOrder(
     customer,
     customerProfile?.id ?? null,
-    callerSub,
     validatedOrder,
   );
 
