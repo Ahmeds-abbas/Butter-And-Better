@@ -1,5 +1,5 @@
 # Butter & Better
-
+1
 Butter & Better is a deployed full-stack bakery e-commerce website I built for Butter & Better Bakery, a UK-based small-batch bakery owned by Sarah Zain.
 
 The project is live at:
