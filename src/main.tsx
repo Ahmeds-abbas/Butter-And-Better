@@ -5,7 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { BasketProvider } from "./context/BasketContext";
 import "./index.css";
-//test imports
+//test imports they must work
 const chunkReloadKey = "butter-and-better:chunk-reload";
 
 window.addEventListener("vite:preloadError", (event) => {
